@@ -1,1 +1,5 @@
 cudaq
+numpy
+torch
+torchvision
+matplotlib
