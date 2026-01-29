@@ -43,12 +43,23 @@ def _load_dataset(args) -> Iterable[Tuple[Tuple[int, int], int]]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="CUDA-Q parity classifier inspired by arXiv:2601.07223.")
     parser.add_argument("--dataset", choices=["parity", "mnist"], default="parity", help="Training dataset.")
-    parser.add_argument("--mode", choices=["bare", "encoded"], default="encoded", help="Circuit variant.")
+    parser.add_argument(
+        "--mode", 
+        choices=["bare", "encoded", "encoded_logical"], 
+        default="encoded", 
+        help="Circuit variant: bare (unencoded), encoded (simplified rotations), encoded_logical (paper-correct with ancilla rotations)."
+    )
     parser.add_argument("--shots", type=int, default=2048, help="Shots per training example.")
     parser.add_argument("--steps", type=int, default=80, help="Gradient descent steps.")
     parser.add_argument("--lr", type=float, default=0.2, help="Learning rate.")
     parser.add_argument("--theta0", type=float, default=0.3, help="Initial parameter.")
     parser.add_argument("--gate-noise", type=float, default=0.0, help="Single-qubit depolarizing probability.")
+    parser.add_argument(
+        "--ancilla-noise",
+        type=float,
+        default=None,
+        help="Ancilla qubit depolarizing probability (if different from gate-noise). Paper threshold: ~0.003-0.004.",
+    )
     parser.add_argument(
         "--two-qubit-noise-scale",
         type=float,
@@ -92,6 +103,23 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional path to store per-step metrics for plotting (Figure 3 reproduction).",
     )
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Generate training curve plot after completion (requires matplotlib).",
+    )
+    parser.add_argument(
+        "--plot-output",
+        type=str,
+        default=None,
+        help="Output path for plot (default: <log-json>.png). Only used if --plot is set.",
+    )
+    parser.add_argument(
+        "--plot-title",
+        type=str,
+        default=None,
+        help="Custom title for the plot.",
+    )
 
     return parser.parse_args()
 
@@ -99,7 +127,11 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
     cudaq.set_target(args.target)
-    noise_model = build_noise_model(args.gate_noise, args.two_qubit_noise_scale)
+    noise_model = build_noise_model(
+        args.gate_noise, 
+        args.two_qubit_noise_scale,
+        ancilla_error=args.ancilla_noise,
+    )
     dataset = list(_load_dataset(args))
     classifier = ParityClassifier(
         mode=args.mode,
@@ -147,6 +179,69 @@ def main():
         with log_path.open("w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
         print(f"Wrote training log to {log_path}")
+        
+        # Generate plot if requested
+        if args.plot:
+            _generate_plot(args, log_path, log_entries)
+
+
+def _generate_plot(args, log_path: Path, entries: List[dict]):
+    """Generate training curve plot from logged data."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("Warning: matplotlib not installed. Install with: pip install matplotlib")
+        return
+    
+    if not entries:
+        print("Warning: No entries to plot.")
+        return
+    
+    steps = [entry["step"] for entry in entries]
+    accuracies = [entry["accuracy"] * 100.0 for entry in entries]  # Convert to percentage
+    losses = [entry["loss"] for entry in entries]
+    
+    # Determine output path
+    if args.plot_output:
+        output_path = Path(args.plot_output)
+    else:
+        output_path = log_path.with_suffix(".png")
+    
+    # Create plot
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+    
+    # Accuracy plot
+    ax1.plot(steps, accuracies, linewidth=2, color="#2E86AB", label="Accuracy")
+    ax1.set_ylabel("Accuracy (%)", fontsize=11)
+    ax1.set_ylim(0, 105)
+    ax1.grid(alpha=0.3)
+    ax1.legend(loc="lower right")
+    
+    # Loss plot
+    ax2.plot(steps, losses, linewidth=2, color="#A23B72", label="Loss")
+    ax2.set_xlabel("Training Step", fontsize=11)
+    ax2.set_ylabel("Loss", fontsize=11)
+    ax2.grid(alpha=0.3)
+    ax2.legend(loc="upper right")
+    
+    # Title
+    if args.plot_title:
+        title = args.plot_title
+    else:
+        mode = args.mode.capitalize()
+        dataset = args.dataset.upper()
+        noise = args.gate_noise
+        title = f"{dataset} - {mode} (noise={noise})"
+    
+    fig.suptitle(title, fontsize=13, fontweight="bold")
+    
+    # Save
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    
+    print(f"Saved plot to {output_path}")
 
 
 if __name__ == "__main__":
