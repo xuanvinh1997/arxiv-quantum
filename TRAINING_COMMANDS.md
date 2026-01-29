@@ -4,6 +4,221 @@ Commands to reproduce experiments from "Quantum Error Correction and Detection f
 
 ---
 
+## Dataset Comparison: Parity vs MNIST
+
+### Parity Dataset (Simple, Deterministic)
+
+**Purpose**: Fundamental 2-qubit XOR problem for validating error detection
+
+**Characteristics**:
+- **Size**: 4 samples (complete truth table)
+- **Input**: 2 bits (bit0, bit1)
+- **Output**: XOR(bit0, bit1)
+- **Samples**:
+  ```
+  (0, 0) → 0  (even parity)
+  (0, 1) → 1  (odd parity)
+  (1, 0) → 1  (odd parity)
+  (1, 1) → 0  (even parity)
+  ```
+
+**Circuit Encoding**:
+- Bit 0/1 → Apply X gate if bit = 1
+- Direct basis encoding (no feature extraction)
+
+**Use Cases**:
+- ✅ Fast validation of QEC implementation
+- ✅ Noise threshold experiments (paper's Section 4.3)
+- ✅ Syndrome round comparison
+- ✅ Debugging circuit issues
+- ⏱️ Runs in seconds
+
+**Paper Reference**: Section 4, primary experiment
+
+---
+
+### MNIST Dataset (Complex, Realistic)
+
+**Purpose**: Real-world handwritten digit classification
+
+**Characteristics**:
+- **Size**: Configurable (default 128-256 per class)
+- **Input**: 28×28 grayscale images (784 pixels)
+- **Output**: Binary classification (digit A vs digit B)
+- **Feature Extraction** (coarse 2-bit encoding):
+  ```python
+  bit0 = 1 if top_half_mean > bottom_half_mean else 0
+  bit1 = 1 if left_half_mean > right_half_mean else 0
+  ```
+
+**Circuit Encoding**:
+- Extract spatial features from image quadrants
+- Reduces 784 dimensions → 2 bits
+- Lossy but tractable for 2-qubit circuits
+
+**Paper vs Implementation**:
+| Aspect | Paper (Section 3.1) | Current Implementation |
+|--------|---------------------|------------------------|
+| **Encoding** | Amplitude encoding (10 qubits) | Coarse 2-bit features (2 qubits) |
+| **Dimensions** | 2^10 = 1024 amplitudes | 2^2 = 4 states |
+| **Qubits** | 10 logical qubits | 2 qubits (4 with [[4,2,2]]) |
+| **Layers** | 75-100 variational layers | 1-2 layers |
+| **Classes** | 10-class (all digits) | Binary (2 digits) |
+
+**Use Cases**:
+- ✅ Realistic classification task
+- ✅ Test generalization beyond toy problems
+- ✅ Compare different digit pairs (easy vs hard)
+- ⚠️ Simplified from paper (2 bits vs amplitude encoding)
+- ⏱️ Runs in minutes
+
+**Paper Reference**: Section 3.1 (full scale version not implemented)
+
+---
+
+## When to Use Each Dataset
+
+### Use Parity for:
+1. **Quick validation** - Verify implementation correctness
+2. **Noise experiments** - Paper's Figure 4 reproduction
+3. **Hyperparameter tuning** - Fast iteration
+4. **Debugging** - Small, deterministic problem
+5. **QEC validation** - Error detection threshold finding
+
+**Example**:
+```bash
+python -m arxiv_2601_07223.cli \
+    --dataset parity \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --shots 4096 \
+    --steps 100
+```
+**Expected**: ~30 seconds, >90% accuracy at low noise
+
+---
+
+### Use MNIST for:
+1. **Real-world validation** - Non-trivial classification
+2. **Generalization tests** - Model performance on unseen data
+3. **Publication figures** - More convincing than XOR
+4. **Comparing digit pairs** - Task difficulty variation
+5. **Mini-batch training** - Larger dataset for optimization
+
+**Example**:
+```bash
+python -m arxiv_2601_07223.cli \
+    --dataset mnist \
+    --mnist-digit-positive 0 \
+    --mnist-digit-negative 1 \
+    --mnist-limit 128 \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --shots 4096 \
+    --steps 120 \
+    --batch-size 32
+```
+**Expected**: ~5-10 minutes, 70-85% accuracy
+
+---
+
+## Feature Extraction Details
+
+### MNIST Quadrant Encoding
+
+```
+Original Image (28×28):          Feature Extraction:
+┌──────────────┐                 ┌──────┬──────┐
+│              │                 │ TOP  │      │
+│    Digit     │    →            │  ↓   │      │
+│              │                 ├──────┼──────┤
+│              │                 │BOTTOM│      │
+└──────────────┘                 └──────┴──────┘
+                                 ┌──────────────┐
+                                 │LEFT │ RIGHT │
+                                 │  ←  │   →   │
+                                 └──────────────┘
+                                 
+bit0 = top_mean > bottom_mean  (vertical orientation)
+bit1 = left_mean > right_mean  (horizontal orientation)
+```
+
+**Example Digit Encodings**:
+- **Digit 1**: bit0=1, bit1=0 (top-heavy, centered)
+- **Digit 7**: bit0=1, bit1=0 (top-heavy, horizontal top)
+- **Digit 0**: bit0=0, bit1=0 (balanced, circular)
+- **Digit 4**: bit0=0, bit1=1 (bottom-heavy, left-leaning)
+
+---
+
+## Accuracy Expectations
+
+### Parity (4 samples, deterministic)
+| Noise Level | Bare Mode | Encoded Mode | Notes |
+|-------------|-----------|--------------|-------|
+| p = 0.000 | 100% | 100% | Perfect classification |
+| p = 0.001 | 90-95% | 95-100% | QEC helps |
+| p = 0.003 | 75-85% | 85-95% | QEC critical |
+| p = 0.005 | 60-70% | 70-85% | Both degrade |
+| p ≥ 0.010 | ~50% | 55-65% | Near random |
+
+### MNIST (128+ samples per class, real data)
+| Noise Level | Bare Mode | Encoded Mode | Notes |
+|-------------|-----------|--------------|-------|
+| p = 0.000 | 75-85% | 80-90% | Feature limit |
+| p = 0.001 | 70-80% | 75-85% | Slight drop |
+| p = 0.003 | 60-70% | 70-80% | QEC helps |
+| p = 0.005 | 55-65% | 60-75% | Trainability limit |
+| p ≥ 0.010 | ~50% | 50-60% | Near random |
+
+**Note**: MNIST accuracy limited by 2-bit encoding (not paper's amplitude encoding)
+
+---
+
+## Comparison Script
+
+```bash
+# Create results directory
+mkdir -p results/comparison
+
+# Run parity (fast baseline)
+python -m arxiv_2601_07223.cli \
+    --dataset parity \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --syndrome-rounds 2 \
+    --shots 4096 \
+    --steps 100 \
+    --log-json results/comparison/parity_encoded.json \
+    --plot
+
+# Run MNIST (realistic task)
+python -m arxiv_2601_07223.cli \
+    --dataset mnist \
+    --mnist-digit-positive 0 \
+    --mnist-digit-negative 1 \
+    --mnist-limit 128 \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --syndrome-rounds 2 \
+    --shots 4096 \
+    --steps 120 \
+    --batch-size 32 \
+    --log-json results/comparison/mnist_encoded.json \
+    --plot
+
+# Compare training curves
+python plot_fig3.py \
+    results/comparison/parity_encoded.json \
+    results/comparison/mnist_encoded.json \
+    --output results/comparison/comparison.png \
+    --title "Parity vs MNIST Classification"
+```
+
+---
+
+---
+
 ## Section 4.3: Baseline Experiments (No Error Detection)
 
 ### Experiment 1: Zero Noise Baseline
@@ -517,20 +732,239 @@ python plot_fig3.py \
 
 ---
 
-## Quick Test (5 minutes)
+## Logging and Plotting
+
+### Overview
+
+The CLI supports two complementary logging features:
+
+| Feature | Flag | Purpose | Output |
+|---------|------|---------|--------|
+| **JSON Logging** | `--log-json <path>` | Record per-step metrics | JSON file with loss/accuracy/gradient |
+| **Auto Plot** | `--plot` | Generate training curves | PNG image (accuracy + loss plots) |
+
+### Basic Pattern
 
 ```bash
-# Minimal test to verify setup
+# Log results AND generate plot automatically
 python -m arxiv_2601_07223.cli \
     --dataset parity \
-    --mode encoded_logical \
+    --mode encoded \
     --gate-noise 0.003 \
-    --syndrome-rounds 2 \
+    --shots 4096 \
+    --steps 100 \
+    --log-json results/experiment.json \
+    --plot
+```
+
+**Output**:
+- `results/experiment.json` - Training metrics (loss, accuracy, gradient per step)
+- `results/experiment.png` - Dual plot (accuracy & loss curves)
+
+### Customizing Plot Output
+
+```bash
+# Use default location (same as .json, but .png extension)
+python -m arxiv_2601_07223.cli \
+    --dataset parity \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --shots 4096 \
+    --steps 100 \
+    --log-json results/bare_vs_encoded.json \
+    --plot
+# Generates: results/bare_vs_encoded.png
+
+# Specify custom plot location
+python -m arxiv_2601_07223.cli \
+    --dataset parity \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --shots 4096 \
+    --steps 100 \
+    --log-json results/data/metrics.json \
+    --plot \
+    --plot-output results/plots/custom_name.png
+# Generates: results/plots/custom_name.png
+
+# Add custom title
+python -m arxiv_2601_07223.cli \
+    --dataset parity \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --shots 4096 \
+    --steps 100 \
+    --log-json results/exp.json \
+    --plot \
+    --plot-title "Parity Classification with QEC (p=0.003)"
+```
+
+### JSON Log Format
+
+```json
+{
+  "args": {
+    "dataset": "parity",
+    "mode": "encoded",
+    "gate_noise": 0.003,
+    "shots": 4096,
+    "steps": 100,
+    ...
+  },
+  "dataset_size": 4,
+  "label_counts": {0: 2, 1: 2},
+  "entries": [
+    {
+      "step": 0,
+      "theta": 0.3,
+      "loss": 0.7245,
+      "gradient": 0.0321,
+      "accuracy": 0.5,
+      "batch_size": 4
+    },
+    {
+      "step": 1,
+      "theta": 0.3321,
+      "loss": 0.6891,
+      "gradient": 0.0298,
+      "accuracy": 0.75,
+      "batch_size": 4
+    },
+    ...
+  ]
+}
+```
+
+### Batch Experiments with Logging
+
+```bash
+#!/bin/bash
+# Run multiple experiments with automatic logging and plotting
+
+mkdir -p results/{bare,encoded}
+
+NOISE_LEVELS=(0.001 0.003 0.005 0.010)
+
+for noise in "${NOISE_LEVELS[@]}"; do
+    echo "Testing noise=$noise"
+    
+    # Bare circuit
+    python -m arxiv_2601_07223.cli \
+        --dataset parity \
+        --mode bare \
+        --gate-noise $noise \
+        --shots 4096 \
+        --steps 100 \
+        --log-json results/bare/p_${noise}.json \
+        --plot \
+        --plot-title "Bare (p=$noise)" \
+        --plot-output results/bare/p_${noise}.png
+    
+    # Encoded circuit
+    python -m arxiv_2601_07223.cli \
+        --dataset parity \
+        --mode encoded \
+        --gate-noise $noise \
+        --shots 4096 \
+        --steps 100 \
+        --log-json results/encoded/p_${noise}.json \
+        --plot \
+        --plot-title "Encoded QEC (p=$noise)" \
+        --plot-output results/encoded/p_${noise}.png
+done
+
+echo "All experiments complete. Check results/ directory."
+```
+
+**Generated files**:
+```
+results/
+├── bare/
+│   ├── p_0.001.json
+│   ├── p_0.001.png
+│   ├── p_0.003.json
+│   ├── p_0.003.png
+│   ├── p_0.005.json
+│   ├── p_0.005.png
+│   ├── p_0.010.json
+│   └── p_0.010.png
+└── encoded/
+    ├── p_0.001.json
+    ├── p_0.001.png
+    └── ... (same for other noise levels)
+```
+
+### MNIST with Logging and Plotting
+
+```bash
+# MNIST experiment with comprehensive logging
+python -m arxiv_2601_07223.cli \
+    --dataset mnist \
+    --mnist-digit-positive 0 \
+    --mnist-digit-negative 1 \
+    --mnist-limit 128 \
+    --mode encoded \
+    --gate-noise 0.003 \
+    --shots 4096 \
+    --steps 120 \
+    --batch-size 32 \
+    --log-json results/mnist_0v1_p0003.json \
+    --plot \
+    --plot-title "MNIST 0 vs 1 Classification (QEC, p=0.003)"
+```
+
+### Processing Logs Post-Hoc
+
+```python
+import json
+import matplotlib.pyplot as plt
+
+# Load log
+with open("results/experiment.json", "r") as f:
+    log = json.load(f)
+
+# Extract data
+steps = [e["step"] for e in log["entries"]]
+accuracy = [e["accuracy"] * 100 for e in log["entries"]]
+loss = [e["loss"] for e in log["entries"]]
+gradient = [e["gradient"] for e in log["entries"]]
+
+# Create custom plots
+fig, axes = plt.subplots(3, 1, figsize=(10, 8))
+
+axes[0].plot(steps, accuracy, 'o-', label='Accuracy')
+axes[0].set_ylabel('Accuracy (%)')
+axes[0].grid(alpha=0.3)
+
+axes[1].plot(steps, loss, 'o-', color='red', label='Loss')
+axes[1].set_ylabel('Loss')
+axes[1].grid(alpha=0.3)
+
+axes[2].plot(steps, gradient, 'o-', color='green', label='Gradient')
+axes[2].set_ylabel('Gradient Magnitude')
+axes[2].set_xlabel('Training Step')
+axes[2].grid(alpha=0.3)
+
+plt.tight_layout()
+plt.savefig("custom_analysis.png", dpi=300)
+print("Saved custom_analysis.png")
+```
+
+### Quick Test (5 minutes)
+
+```bash
+# Minimal test to verify setup with logging and plotting
+python -m arxiv_2601_07223.cli \
+    --dataset parity \
+    --mode encoded \
+    --gate-noise 0.003 \
     --shots 1024 \
     --steps 20 \
-    --log-json results/quick_test.json
+    --log-json results/quick_test.json \
+    --plot
 
 # Should complete in 2-5 minutes
+# Generates: quick_test.json and quick_test.png
 # Expected: Accuracy improves from ~50% to 70-90%
 ```
 

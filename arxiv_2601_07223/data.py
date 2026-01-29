@@ -60,7 +60,8 @@ def _mnist_quadrant_bits(image_tensor, threshold: float | None) -> Tuple[int, in
 
 def _resolve_raw_file(raw_dir: Path, base_name: str) -> Path:
     """Return the path to a raw MNIST file, handling nested folders and .gz."""
-
+    print("Looking for MNIST file:", base_name)
+    print("In raw directory:", raw_dir)
     candidates = {base_name}
     if "-idx" in base_name:
         candidates.add(base_name.replace("-idx", ".idx", 1))
@@ -104,10 +105,9 @@ def _read_idx_array(path: Path, expected_magic: int) -> np.ndarray:
     return array.reshape(shape)
 
 
-def _load_raw_mnist_arrays(root: Path, train_split: bool) -> Tuple[np.ndarray, np.ndarray]:
-    """Load MNIST images/labels from raw IDX files under root/raw."""
+def _load_raw_mnist_arrays(raw_dir: Path, train_split: bool) -> Tuple[np.ndarray, np.ndarray]:
+    """Load MNIST images/labels from raw IDX files under root."""
 
-    raw_dir = root / "raw"
     prefix = "train" if train_split else "t10k"
     image_path = _resolve_raw_file(raw_dir, f"{prefix}-images-idx3-ubyte")
     label_path = _resolve_raw_file(raw_dir, f"{prefix}-labels-idx1-ubyte")
