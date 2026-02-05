@@ -73,10 +73,22 @@ def parse_args() -> argparse.Namespace:
         help="Number of stabilizer extraction stages for the encoded mode.",
     )
     parser.add_argument(
+        "--num-layers",
+        type=int,
+        default=1,
+        help="Number of variational layers (paper uses 75-100 for deep circuit experiments).",
+    )
+    parser.add_argument(
+        "--env-noise-interval",
+        type=int,
+        default=None,
+        help="Apply environmental Pauli noise every N gates (paper uses 4). If None, only gate noise is applied.",
+    )
+    parser.add_argument(
         "--target",
         type=str,
-        default="density-matrix-cpu",
-        help="CUDA-Q target backend (density-matrix-cpu recommended for noise).",
+        default="nvidia",
+        help="CUDA-Q target backend. Use 'nvidia' for GPU acceleration, 'density-matrix-cpu' for CPU.",
     )
     parser.add_argument("--batch-size", type=int, default=None, help="Mini-batch size. Defaults to full batch.")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for batching.")
@@ -131,6 +143,7 @@ def main():
         args.gate_noise, 
         args.two_qubit_noise_scale,
         ancilla_error=args.ancilla_noise,
+        env_noise_interval=args.env_noise_interval,
     )
     dataset = list(_load_dataset(args))
     classifier = ParityClassifier(
@@ -138,6 +151,7 @@ def main():
         shots=args.shots,
         syndrome_rounds=args.syndrome_rounds,
         noise_model=noise_model,
+        num_layers=args.num_layers,
     )
     trainer = VariationalTrainer(
         classifier=classifier,

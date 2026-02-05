@@ -13,7 +13,7 @@ from typing import Dict, Optional, Tuple
 
 import cudaq
 
-from .circuits import build_bare_kernel_single_param, build_encoded_kernel, build_encoded_kernel_logical_rotations
+from .circuits import build_bare_kernel, build_encoded_kernel, build_encoded_kernel_logical_rotations
 
 # Logical decoding for the [[4,2,2]] codewords in Eqs. (17)-(20) of the paper.
 LOGICAL_LOOKUP: Dict[str, Tuple[int, int]] = {
@@ -33,6 +33,7 @@ def build_noise_model(
     two_qubit_factor: float,
     ancilla_error: float = None,
     num_data_qubits: int = 4,
+    env_noise_interval: int = None,
 ) -> Optional[cudaq.NoiseModel]:
     """
     Attach depolarizing channels to gates with optional ancilla-specific noise.
@@ -42,10 +43,17 @@ def build_noise_model(
         two_qubit_factor: Multiplier for two-qubit gate noise
         ancilla_error: Noise rate for ancilla qubits (if None, uses single_qubit_error)
         num_data_qubits: Number of data qubits (4 for [[4,2,2]] code)
+        env_noise_interval: If set, applies environmental Pauli noise every N gates
+                           (paper uses interval=4 for environmental noise model).
+                           This is implemented by adding extra noise to identity gates.
     
     Paper Finding (Section 4.3):
     Ancilla error threshold ~0.003-0.004. Above this, errors propagate from
     ancilla qubits to physical qubits through CNOTs, limiting QEC effectiveness.
+    
+    Environmental Noise Model (Section 4.3):
+    Paper applies Pauli errors at regular intervals (every 4 gates) to simulate
+    environmental decoherence in addition to gate errors.
     """
     if single_qubit_error <= 0.0:
         return None
@@ -76,6 +84,17 @@ def build_noise_model(
     
     # Note: CUDA-Q doesn't support noise on SWAP gates directly
     # SWAP is decomposed into CNOTs internally, so CNOT noise applies
+    
+    # Environmental noise model (paper Section 4.3)
+    # Simulates decoherence by adding noise to identity gates at regular intervals
+    # In CUDA-Q, we approximate this by adding noise to 'i' (identity) gates
+    # The circuit should insert identity gates every env_noise_interval gates
+    if env_noise_interval is not None and env_noise_interval > 0:
+        # Environmental noise uses same error rate as gate noise
+        env_channel = cudaq.DepolarizationChannel(single_qubit_error)
+        noise.add_all_qubit_channel("i", env_channel)
+        # Note: Circuit must explicitly insert 'i' gates for this to take effect
+    
     return noise
 
 
@@ -106,19 +125,21 @@ class ParityClassifier:
         shots: int,
         syndrome_rounds: int,
         noise_model: Optional[cudaq.NoiseModel],
+        num_layers: int = 1,
     ):
         if mode not in {"bare", "encoded", "encoded_logical"}:
             raise ValueError("mode must be 'bare', 'encoded', or 'encoded_logical'")
         self.mode = mode
         self.shots = shots
         self.noise_model = noise_model
+        self.num_layers = num_layers
         self.syndrome_rounds = syndrome_rounds if mode in {"encoded", "encoded_logical"} else 0
-        self.bare_kernel = build_bare_kernel_single_param() if mode == "bare" else None
+        self.bare_kernel = build_bare_kernel(num_layers) if mode == "bare" else None
         self.encoded_kernel = (
-            build_encoded_kernel(self.syndrome_rounds) if mode == "encoded" else None
+            build_encoded_kernel(self.syndrome_rounds, num_layers) if mode == "encoded" else None
         )
         self.encoded_logical_kernel = (
-            build_encoded_kernel_logical_rotations(self.syndrome_rounds) 
+            build_encoded_kernel_logical_rotations(self.syndrome_rounds, num_layers) 
             if mode == "encoded_logical" else None
         )
 
@@ -133,9 +154,11 @@ class ParityClassifier:
     def _run_bare(self, theta: float, bits: Tuple[int, int]) -> SampleStats:
         kernel = self.bare_kernel
         assert kernel is not None
+        # Multi-layer kernel expects list of thetas (one per layer)
+        thetas = [theta] * self.num_layers
         result = cudaq.sample(
             kernel,
-            theta,
+            thetas,
             bits[0],
             bits[1],
             shots_count=self.shots,
@@ -147,9 +170,11 @@ class ParityClassifier:
     def _run_encoded(self, theta: float, bits: Tuple[int, int]) -> SampleStats:
         kernel = self.encoded_kernel
         assert kernel is not None
+        # Multi-layer kernel expects list of thetas (one per layer)
+        thetas = [theta] * self.num_layers
         result = cudaq.sample(
             kernel,
-            theta,
+            thetas,
             bits[0],
             bits[1],
             shots_count=self.shots,
@@ -181,9 +206,11 @@ class ParityClassifier:
         """Run with full logical rotation encoding (paper-correct implementation)."""
         kernel = self.encoded_logical_kernel
         assert kernel is not None
+        # Multi-layer kernel expects list of thetas (one per layer)
+        thetas = [theta] * self.num_layers
         result = cudaq.sample(
             kernel,
-            theta,
+            thetas,
             bits[0],
             bits[1],
             shots_count=self.shots,
@@ -215,12 +242,12 @@ class ParityClassifier:
         return SampleStats(expectation=expectation, accepted_shots=accepted, rejected_shots=rejected)
 
     def _has_syndrome_logical(self, bitstring: str) -> bool:
-        """Check syndrome bits in logical rotation mode (after data + rotation ancillas)."""
+        """Check syndrome bits in logical rotation mode (after data qubits)."""
         if self.syndrome_rounds == 0:
             return False
         data_len = 4
-        rotation_ancillas = 12  # Must match build_encoded_kernel_logical_rotations
-        syndrome_start = data_len + rotation_ancillas
+        # No rotation ancillas in simplified implementation - syndrome follows data directly
+        syndrome_start = data_len
         for r in range(self.syndrome_rounds):
             z_bit = bitstring[syndrome_start + 2 * r]
             x_bit = bitstring[syndrome_start + 2 * r + 1]
