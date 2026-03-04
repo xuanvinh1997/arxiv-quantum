@@ -1,0 +1,30 @@
+\begin{tikzpicture} 
+  \begin{pgfonlayer}{nodelayer} 
+    \node [style=Label] (0) at (0, -0.0) {$q_{1}$};
+    \node [style=none] (6) at (0.5, -0.0) {};
+    \node [style=Label] (1) at (0, -1.5) {$q_{2}$};
+    \node [style=none] (7) at (0.5, -1.5) {};
+    \node [style=Label] (2) at (0, -3.0) {$q_{3}$};
+    \node [style=none] (8) at (0.5, -3.0) {};
+    \node [style=Label] (3) at (0, -4.5) {$q_{4}$};
+    \node [style=none] (9) at (0.5, -4.5) {};
+    \node [style=Label] (4) at (0, -6.0) {$q_{5}$};
+    \node [style=none] (10) at (0.5, -6.0) {};
+    \node [style=Label] (5) at (0, -7.5) {$q_{6}$};
+    \node [style=none] (11) at (0.5, -7.5) {};
+\node [style=gateTest_1] (14) at (2, -0.75) {XY\\  $1$};\node [style=gateTest_1] (17) at (4, -2.25) {XY\\  $2$};\node [style=gateTest_1] (20) at (6, -3.75) {XY\\  $3$};\node [style=gateTest_1] (23) at (8, -5.25) {XY\\  $4$};\node [style=gateTest_1] (26) at (10, -6.75) {XY\\  $5$};\node [style=gateTest_2] (29) at (10, -1.5) {YX\\  $6$};\node [style=gateTest_2] (32) at (12, -6.0) {XY\\  $7$};\node [style=gateTest_2] (35) at (14, -3.0) {YX\\  $8$};\node [style=gateTest_2] (38) at (16, -4.5) {XY\\  $9$};\node [style=gateTest_3] (41) at (18, -2.25) {YX\\  $10$};\node [style=gateTest_3] (44) at (20, -5.25) {YX\\  $11$};\node [style=gateTest_3] (47) at (22, -3.75) {YX\\  $12$};\node [style=gateTest_1] (50) at (24, -6.75) {YX\\  $13$};\node [style=gateTest_4] (53) at (26, -4.5) {XY\\  $14$};\node [style=gateTest_2] (56) at (28, -3.0) {XY\\  $15$};\node [style=gateTest_4] (59) at (30, -3.0) {XY\\  $16$};    \node [style=none] (60) at (31.5, -0.0) {};
+    \node [style=none] (61) at (31.5, -1.5) {};
+    \node [style=none] (62) at (31.5, -3.0) {};
+    \node [style=none] (63) at (31.5, -4.5) {};
+    \node [style=none] (64) at (31.5, -6.0) {};
+    \node [style=none] (65) at (31.5, -7.5) {};
+\end{pgfonlayer} 
+ \begin{pgfonlayer}{edgelayer} 
+\draw (6.center) to (60.center); 
+\draw (7.center) to (61.center); 
+\draw (8.center) to (62.center); 
+\draw (9.center) to (63.center); 
+\draw (10.center) to (64.center); 
+\draw (11.center) to (65.center); 
+\end{pgfonlayer} 
+ \end{tikzpicture} 

@@ -1,0 +1,42 @@
+\section{The Shadow Enhanced Greedy Quantum Eigensolver}
+\label{sec:main}
+\subsection{Procedure}
+\label{sec:procedure}
+Starting from an empty circuit $C_0=I$, the Shadow Enhanced Greedy Quantum Eigensolver (SEGQE) iteratively constructs an approximation to the ground state of a given $n$-qubit Hamiltonian $H=\sum^r_{i=1}c_iP_i$ by growing a quantum circuit $C$. We denote by $C_k$ the circuit after $k$ iterations. Applied to an initial state $\ket{\psi_0}$, which may encode prior classical information such as a Hartree--Fock state or a matrix product state, the circuit prepares $\ket{\psi_k}=C_k\ket{\psi_0}$. At each iteration, we record a collection of $N$ independent classical shadows obtained from uniformly random local Pauli measurements of $\ket{\psi_k}$, which allows us to estimate the energy difference
+\begin{equation}
+   \Delta E_{k, j}(\theta) =\bra{\psi_k}H\ket{\psi_k}-\bra{\psi_k}U^\dagger _j(\theta)HU_j(\theta)\ket{\psi_k},
+\end{equation}
+for every candidate gate $U_j(\theta)$ in a given set $\mathcal{G}=\{U_j(\theta)\}^K_{j=1}$. Classically maximizing the estimated energy difference over $\theta$ for all candidate gates enables us to identify the energy-minimizing gate $U_{j^*}(\theta^*_{j^*})$ and update the circuit as $C_k\to C_{k+1}=U_{j^*}(\theta^*_{j^*})C_k$. The procedure is repeated until either a predefined circuit depth $D$ is reached or no candidate gate yields an energy reduction exceeding a predefined threshold $\Delta >0$. 
+
+To understand how SEGQE estimates the energy-minimizing parameters $\theta^*_j$ for each gate in $\mathcal{G}$ at iteration $k$ (for notational convenience, we drop the index $k$ in the following), consider a single arbitrarily parametrized $n$-qubit unitary $U(\theta) \in \mathrm{SU}(2^n)$ of locality $m\leq n$. 
+Denote by $Q^u\subseteq\{1,\ldots n\}$ the qubit support of $U(\theta)$, and by $Q^c$ its complement, on which $U(\theta)$ acts trivially. Likewise, let $Q^i\subseteq\{1,\ldots n\}$ denote the support of the Hamiltonian term $P_i$. We can decompose each Pauli $P_i$ with respect to the bipartition $Q^u\cup Q^c$ as $P_i=P^u_i\otimes P^c_i$, where $P^u_i$ acts on $Q^u$ and $P^c_i$ acts on $Q^c$. Furthermore, we define the set $I^u=\left\{i\in\{1,\ldots,r\}: Q^i\cap Q^u\neq \emptyset\right\}$ as the indices of the Hamiltonian terms which act nontrivially on the qubits in $Q^u$. Hamiltonian terms with $Q^i \cap Q^u = \emptyset$ commute with $U(\theta)$ and therefore do not contribute to the energy difference. The energy difference induced by $U(\theta)$ is then given by
+\begin{align}
+    \Delta E(\theta)=&\bra{\psi}H\ket{\psi}-\bra{\psi}U^\dagger(\theta) H U(\theta) \ket{\psi}\\
+	=& \sum_{i\in I^u}c_i 
+	\left(\bra{\psi}P_i\ket{\psi}{-}\bra{\psi}U^\dagger(\theta) P^u_i U(\theta)\otimes P_i^c\ket{\psi} \right) \nonumber
+\end{align}
+    Since the $m$-qubit Pauli operators $\{P_\mu^u\}_{\mu=0}^{4^m-1}$ form an orthonormal basis (with respect to the Hilbert--Schmidt inner product) on the operator space corresponding to the qubits in $Q^u$, we can expand
+    \begin{align}
+        U^\dagger(\theta) P^u_i U(\theta) &= \sum_{\mu=0}^{4^m-1}\frac{1}{2^m}\mathrm{tr}\left[U^\dagger(\theta) P^u_iU(\theta)P_\mu^u\right]P_\mu^u\\&=\sum_{\mu=0}^{4^m-1}r_{i\mu}P_\mu^u,
+    \end{align}
+    where $r_{i\mu}(\theta):=\frac{1}{2^m}\mathrm{tr}\left[U^\dagger(\theta) P^u_iU(\theta)P_\mu^u\right]$. Substituting this into the above expression for the energy difference yields
+    \begin{equation}
+        \label{eq:energy_differences}
+        \Delta E(\theta)=\sum_{i\in I^u}\sum^{4^m-1}_{\mu=0}f_{i\mu}(\theta)p_{i\mu},
+    \end{equation}
+    where we define
+    \begin{equation*}
+        f_{i\mu}(\theta):= c_i(\delta_{P^u_i,P_\mu^u} - r_{i\mu}(\theta)),\quad p_{i\mu} := \bra{\psi} P_\mu^u \otimes P_i^c \ket{\psi}.
+    \end{equation*}
+    Notably, the expectation values $p_{i\mu}$ are independent of $\theta$, so once estimated, $\Delta E(\theta)$ can be constructed via \cref{eq:energy_differences} and thus evaluated and maximized entirely classically. To simplify notation, we define the composite index $\alpha:=(i,\mu)$. For each candidate gate $U_j(\theta)\in\mathcal{G}$, we define the associated Pauli operators $P_{j,\alpha}:=P^{u(j)}_\mu \otimes P^{c(j)}_i$, and their expectation values $p_{j,\alpha}:=\bra{\psi}P_{j,\alpha}\ket{\psi}$, where the superscripts $u(j)$ and $c(j)$ indicate the bipartition induced by the support of $U_j$. The corresponding energy differences can then be written as
+    \begin{equation}
+        \Delta E_j(\theta) =\sum_{\alpha\in \mathcal{F}_j}f_{j,\alpha}(\theta)p_{j,\alpha}, 
+    \end{equation}
+    where $\mathcal{F}_j$ denotes the set of indices $\alpha$ that appear in the expansion associated with gate $U_j$. 
+    In the following section, we derive rigorous guarantees on the estimation accuracy achievable when using classical shadows to predict these energy differences. The overall procedure of SEGQE is summarized in \cref{alg:segqe}.
+
+\input{src/algorithm}
+
+
+
+

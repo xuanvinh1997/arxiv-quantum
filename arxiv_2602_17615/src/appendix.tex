@@ -1,0 +1,364 @@
+\section{Related Work \label{appendix:related_works}}
+%\subsection{Previous Greedy Algorithms}
+%\subsection{Quantum Imaginary Time Evolution}
+Iterative state-preparation methods such as quantum imaginary time evolution (QITE) \cite{motta2020determining} also construct circuits step by step, but they aim to approximate a global imaginary-time flow. To this end, QITE approximates local non-unitary operations with unitary circuits obtained from increasingly non-local optimizations, making the direct integration of measurement-efficient frameworks such as classical shadows challenging. In contrast, SEGQE performs greedy local optimization based on instantaneous energy reduction and maintains locality throughout the evolution. 
+
+Similarly, the greedy, gradient-free, adaptive variational quantum eigensolver proposed in Ref.~\cite{feniou2025greedy} appends gates, specifically those admitting analytical optimization such as Pauli rotations, based on instantaneous energy reduction, but relies on conventional measurement strategies. SEGQE extends this framework by incorporating classical shadows, providing rigorous per-iteration sample-complexity guarantees, and accommodating large, collections of expressive candidate gates.
+
+\section{Proofs}
+\label{appendix:proofs}
+Throughout this section, as well as in the results section of the main text, the term classical shadow refers to an estimator obtained from a single uniformly random Pauli measurement followed by the corresponding inverse measurement channel \cite{huang2020predicting}. For any observable $O$, we denote by $o := \Tr(\rho O)$ its expectation value in a given quantum state $\rho$ (or $\ket{\psi}$), and by $\hat{o} := \Tr(O\hat{\rho})$ the corresponding single-shot estimator obtained from a classical shadow $\hat{\rho}$. Unless stated otherwise, expectation values $\mathbb{E}[\cdot]$ are taken with respect to the distribution of such single-shot Pauli shadows of a fixed underlying state $\rho$. Furthermore, we denote by $\mathcal{P}^{n}$ the $n$-qubit Pauli group and by $\mathrm{Cl}(2^n)$ the $n$-qubit Clifford group. 
+
+\begin{lemma}[Second Moments of Pauli Shadows]
+    \label{lemma:second_moments}
+    Let $\hat{\rho}$ be a classical shadow of an $n$-qubit quantum state $\rho$ obtained from a single uniformly random local Pauli measurement. For $P_\alpha, P_\beta \in \mathcal{P}^n$, define $\hat{p}_\alpha=\mathrm{Tr}(P_\alpha\hat{\rho})$ and $\hat{p}_\beta=\mathrm{Tr}(P_\beta\hat{\rho})$. Then
+    \begin{equation}
+        \mathbb{E}\left[\hat{p}_\alpha \hat{p}_\beta
+        \right]=\begin{cases}
+        3^L\mathrm{Tr}(\rho P_\alpha P_\beta) & \text{if $P_\alpha$ and $P_\beta$ commute on every qubit}\\
+        0 &\text{otherwise}
+        \end{cases},
+    \end{equation}
+    where $L$ is the number of qubits on which both $P_\alpha$ and $P_\beta$ act nontrivially.
+\end{lemma}
+\begin{proof}
+    Let $w_\alpha$, respectively $w_\beta$, denote the localities of the two Pauli operators $P_\alpha,P_\beta\in\mathcal{P}^n$, and let $P_\alpha = \bigotimes^n_{j=1}P_\alpha^j$ and $P_\beta = \bigotimes^n_{j=1}P_\beta^j$, where $P^j_\alpha,P^j_\beta\in\mathcal{P}$. Furthermore, let $\ket{b}\in\{\ket{0},\ket{1}\}^{\otimes n}$ denote the measurement outcome and $U\in\{I,H,S^\dagger H\}^{\otimes n}\subset \mathrm{Cl}(2)^{\otimes n}$ the measurement basis associated with the classical shadow $\hat{\rho}$. Moreover we define $\mathcal{B}=\{\ket{0},\ket{1},\ket{\pm}, \ket{\pm i}\}$ as the set of all six single-qubit Pauli eigenstates. In \cite{huang2020predicting} it was shown that for any $k$-local Pauli operator $P$, we can write $\hat{p}:=\mathrm{Tr}(P\hat{\rho})=3^k\bra{b}U P U^\dagger\ket{b}$. Taking the expectation value of the product $\hat{p}_\alpha \hat{p}_\beta$ with respect to the measurement basis and the measurement outcome then yields
+    \begin{align}
+        \mathbb{E}\left[\hat{p}_\alpha \hat{p}_\beta\right]&=\frac{3^{w_\alpha + w_\beta}}{3^n}\sum_{\ket{x}\in \mathcal{B}^{\otimes n}}\bra{x}\rho\ket{x}\bra{x}P_\alpha\ket{x}\bra{x}P_\beta\ket{x} \\
+        &=\frac{3^{w_\alpha + w_\beta}}{3^n}\mathrm{Tr}\left[\rho\bigotimes^n_{j=1}\left(\sum_{\ket{x^j}\in \mathcal{B}}\ket{x^j}\bra{x^j}\bra{x^j}P_\alpha^j\ket{x^j}\bra{x^j}P^j_\beta\ket{x^j} \right) \right]  \\
+        &=\frac{3^{w_\alpha + w_\beta}}{3^n}\mathrm{Tr}\left[\rho\bigotimes^n_{j=1}\left(\begin{cases}
+            I & \text{if } P^j_\alpha=P^j_\beta\neq I \\
+        3I & \text{if } P^j_\alpha=P^j_\beta= I \\
+        P^j_\alpha & \text{if } P^j_\alpha\neq I\text{ and }P^j_\beta= I \\
+        P^j_\beta & \text{if } P^j_\beta\neq I\text{ and }P^j_\alpha= I \\
+        0 & \text{otherwise }\Leftrightarrow [P^j_\alpha,P^j_\beta]\neq0
+        \end{cases} \right) \right]\\
+        &=\begin{cases}
+            3^L\mathrm{Tr}\left(\rho P_\alpha P_\beta\right)& \text{if }[P^j_\alpha, P^j_\beta]=0\quad\forall1\leq j\leq n\\
+        0 &\text{otherwise}
+        \end{cases},
+    \end{align}
+    where $L$ is the number of qubits on which both $P_\alpha$ and $P_\beta$ act nontrivially.
+\end{proof}
+
+Since classical shadows define unbiased estimators, the covariance between two Pauli estimators follows directly from \cref{lemma:second_moments} and is stated in \cref{cor:covariances}.
+
+\begin{corollary}[Covariances of Pauli Shadows]
+    \label{cor:covariances}
+    Under the assumptions of \cref{lemma:second_moments}, it follows
+    \begin{equation}
+        \mathrm{Cov}\left(\hat{p}_\alpha, \hat{p}_\beta
+        \right)=\begin{cases}
+        3^L\mathrm{Tr}(\rho P_\alpha P_\beta)-\mathrm{Tr}(\rho P_\alpha)\mathrm{Tr}(\rho P_\beta) & \text{if $P_\alpha$ and $P_\beta$ commute on every qubit}\\
+        -\mathrm{Tr}(\rho P_\alpha)\mathrm{Tr}(\rho P_\beta) &\text{otherwise}
+        \end{cases}.
+    \end{equation}
+\end{corollary}
+
+For the special case $P_\alpha = P_\beta$, \cref{cor:covariances} reduces to the known single-shot variance of Pauli shadow estimators derived in \cite{huang2020predicting}. 
+
+These results can now be used to derive upper bounds on the variance of linear functions of Pauli estimators. To define the single-shot estimator for the energy differences considered by SEGQE, we briefly recall how SEGQE constructs energy-difference estimators (see \cref{sec:procedure} for full details). Given an $n$-qubit Hamiltonian $H=\sum^r_{i=1}c_iP_i$ and an $n$-qubit unitary of locality $m$, only Hamiltonian terms whose support overlaps nontrivially with that of $U$ contribute to the energy difference. For each such term, the conjugated operator $U^\dagger P_i U$ is expanded in the Pauli basis on the support of $U$, yielding a linear representation of the energy difference in terms of Pauli expectation values. Replacing each Pauli expectation value by its corresponding single-shot Pauli shadow estimator defines a linear single-shot estimator $\hat{\Delta E}$ for the energy difference. Using this construction, the following lemma provides an upper bound on the variance of these single-shot energy difference estimators.
+
+\begin{lemma}[Variance of Energy-Difference Estimators]
+    \label{lemma:variance_energy}
+    Consider an $n$-qubit Hamiltonian $H=\sum^r_{i=1}c_iP_i$, where each $P_i$ is a Pauli operator of locality at most $l$, an $n$-qubit quantum state $\ket{\psi}$, and an arbitrary $n$-qubit gate $U$ of locality $m$. Let $M^u$ denote the number of Hamiltonian terms whose support overlaps nontrivially with the support of $U$, and define $c_\mathrm{max}:=\max_{1\leq i\leq r}|c_i|$. Then the variance of the single-shot estimator $\hat{\Delta E}$ of the energy difference
+    \begin{equation}
+        \Delta E= \bra{\psi}H\ket{\psi}-\bra{\psi}U^\dagger H U \ket{\psi},
+    \end{equation}
+    with respect to a single classical shadow, is bounded as
+    \begin{equation}
+        \mathrm{Var}\left[\hat{\Delta E}\right]\leq 4^{m+1}3^{l-1}\left(M^uc_\mathrm{max}\right)^2.
+    \end{equation}
+\end{lemma}
+
+\begin{proof}
+    Let $Q^i\subseteq\{1,\ldots n\}$ denote the support of the Hamiltonian term $P_i$ and let $Q^u\subseteq\{1,\ldots n\}$ denote the support of the unitary $U$. $Q^c$ denotes the complement of $Q^u$. Only Hamiltonian terms with $Q^i\cap Q^u\neq\emptyset$ contribute to the energy difference, and we denote their indices by $I^u:=\{i:Q^i\cap Q^u\neq\emptyset\}$. Writing $P_i=P_i^u\otimes P_i^c$ with respect to the bipartition $Q^u\cup Q^c$, the energy difference induced by $U$ can be expressed as
+    \begin{align}
+        \Delta E&= \sum_{i\in I^u}c_i\left(\bra{\psi}P^u_i\otimes P_i^c\ket{\psi}-\bra{\psi}U^\dagger P^u_i U\otimes P_i^c\ket{\psi} \right).
+    \end{align}
+    Expanding the conjugated operator $U^\dagger P_i^u U$ in the Pauli basis on the $m$ qubits in $Q^u$ yields
+    \begin{equation}
+        U^\dagger P^u_i U=\sum_{j=0}^{4^m-1}r_{ij}P_j^u,\qquad r_{ij}:=\frac{1}{2^m}\mathrm{Tr}\left[U^\dagger P^u_iUP_j^u\right],
+    \end{equation}
+    and therefore
+    \begin{equation}
+        \label{eq:energy_difference_app}
+        \Delta E=\sum_{i\in I^u}\sum^{4^m-1}_{j=0}f_{ij}p_{ij},
+    \end{equation}
+    where $f_{ij}:= c_i(\delta_{P^u_iP_j^u} - r_{ij})$ and $p_{ij} := \bra{\psi} P_j^u \otimes P_i^c \ket{\psi}$. This is exactly the linear representation of the energy differences used by SEGQE (see \cref{sec:procedure} for details). For notational convenience, we fold the double index into $\alpha=(i,j)$ and denote by $\mathcal{F}^u:=I^u\times \{0,...,4^m-1\}$ the set of all valid indices. This allows us to write $P_\alpha=P^u_j\otimes P^c_i$ and $\Delta E=\sum_{\alpha\in\mathcal{F}^u} f_\alpha p_\alpha$.
+    
+    Now, let $\hat{p}_{\alpha} := \mathrm{Tr}(\hat\rho P_\alpha)$ denote the estimator of $p_\alpha$ obtained from a single classical shadow $\hat{\rho}$ of $\ket{\psi}\bra{\psi}$. These single-shot Pauli estimators can be used to construct an estimator $\hat{\Delta E}$ of $\Delta E$ via \cref{eq:energy_difference_app}. The variance of this estimator is bounded by its second moment:
+    \begin{equation}
+        \mathrm{Var}[\hat{\Delta E}]=\mathbb{E}\left[\hat{\Delta E}^2\right]-\mathbb{E}\left[\hat{\Delta E}\right]^2\leq \mathbb{E}\left[\hat{\Delta E}^2\right]=\sum_{\alpha, \beta\in\mathcal{F}^u}f_\alpha\mathbb{E}\left[\hat{p}_\alpha \hat{p}_\beta\right]f_\beta.
+    \end{equation}
+    Using \cref{lemma:second_moments} and the fact that $\lvert\mathrm{Tr}(\rho P_\alpha P_\beta)\rvert\leq 1$ for all Pauli operators $P_\alpha$ and $P_\beta$, it follows that
+    \begin{equation}
+        \label{eq:app:2}
+        \mathrm{Var}[\hat{\Delta E}]\leq \sum_{\alpha, \beta\in\mathcal{F}^u}f_\alpha K_{\alpha \beta}f_\beta,\qquad K_{\alpha \beta}=:\begin{cases}
+        3^L&\text{if $P_\alpha$ and $P_\beta$ commute qubit-wise}\\
+        0&\text{otherwise}
+    \end{cases},
+    \end{equation}
+    where $L$ denotes the number of qubits on which both $P_\alpha$ and $P_\beta$ act nontrivially.
+    \Cref{eq:app:2} can be written in matrix form as the quadratic expression $f^\top Kf$, where both, the vector $f$ and the correlation matrix $K$ are restricted to indices $\alpha\in \mathcal{F}^u$. Since $K$ is symmetric, we have
+    \begin{equation}
+        f^\top Kf\leq \lambda_\mathrm{max}(K) \norm{f}_2^2,
+    \end{equation}
+    where $\lambda_\mathrm{max}(K)$ denotes the largest eigenvalue of $K$ and $\norm{f}^2_2$ the squared $\ell_2$-norm of $f$, which is given by
+\begin{align}
+    \norm{f}^2_2 &= \sum_{\alpha\in \mathcal{F}^u} f_\alpha^2=\sum_{i\in I^u}c_i^2\sum^{4^m-1}_{j=0}\left(\delta_{P^u_iP^u_j}-r_{ij} \right)^2\\
+    &=\sum_{i\in I^u}c_i^2\left(1-2r_{ii}+\sum^{4^m-1}_{j=0}r_{ij}^2\right).
+\end{align}
+%the following vector looks ugly, is there a better way?
+Since $U^\dagger P_i^u U$ is Hermitian and unitary, and the set $\{P_j^u\}^{4^m-1}_{j=0}$ forms an orthonormal basis with respect to the Hilbert-Schmidt inner product, the coefficient vector $r_i:=(r_{ij})_j$ satisfies $\norm{r_i}_2=1$. It therefore follows that
+\begin{equation}
+    \norm{f}^2_2=2\sum_{i\in I^u}c_i^2\left(1-r_{ii}\right)\leq 4\sum_{i\in I^u}c_i^2.
+\end{equation}
+%Why maximal eigenavlue now? Be consistent with \lambda_max and spectral norm. Whats the difference?
+To determine $\lambda_{\mathrm{max}}(K)$ of $K$, we exploit the product structure of $\mathcal{F}^u=I^u\times \{0,...,4^m-1\}$. Let $\alpha=(i,j)$ and $\beta=(k,l)$ be two composite indices. Since $Q^u$ and $Q^c$ are disjoint, the entries of $K$ factorize as $K_{\alpha\beta}= K^u_{jl}K^c_{ik}$, where $K^u_{jl}$ accounts for the correlations on $Q^u$ and $K^c_{ik}$ for $Q^c$. Consequently, the correlation matrix decomposes into the tensor product $K=K^c\otimes K^u$. This follows because Pauli operators factorize across disjoint subsystems and classical shadow correlations respect tensor-product structure. The matrix $K^u$ describes the correlations between operators in the set $\{P^u_j\}_{j=0}^{4^m-1}$ on $Q^u$. Since this set corresponds to the full $m$-qubit Pauli basis, $K^u$ takes the form $K^u=\tilde{K}^{\otimes m}$, where 
+\begin{equation}
+\tilde{K}
+=\begin{pmatrix}
+    1&1&1&1\\1&3&0&0\\1&0&3&0\\1&0&0&3
+\end{pmatrix}
+\end{equation}
+is the single-qubit correlation matrix in the basis $\{I,X,Y,Z\}$. The eigenvalues of $\tilde{K}$ are $\{4,3,3,0\}$, which implies $\lambda_\mathrm{max}(K)=\lambda^m_\mathrm{max}(\tilde{K})=4^m$. The matrix $K^c$ is defined by the correlations between the Pauli operators $P^c_i$ on $Q^c$. Since every operator $P_i$ for $i\in I^u$ acts non-trivially on at least one qubit in $Q^u$, the weight of $P_i^c$ is bounded by $l-1$. The entries $K^c$ are therefore bounded by $K^c_{ik}\leq 3^{l-1}$. Consequently, the largest eigenvalue $\lambda_\mathrm{max}(K^c)$ is upper-bounded by the case where all Hamiltonian terms are identical on $Q^c$ (i.e., $P^c_i=P^c_k$ for all $i,k\in I^u$), yielding an $M^u\times M^u$ matrix of identical entries $3^{l-1}$, where $M^u:=|I^u|$. It follows that $\lambda_\mathrm{max}(K^c)\leq M^u3^{l-1}$. Combining these results, we obtain $\lambda_\mathrm{max}(K)\leq M^u 4^m 3^{l-1}$ and thus the following final bound on the variance:
+\begin{equation}
+    \mathrm{Var}\left[\hat{\Delta E}\right]\leq  M^u4^{m+1}3^{l-1}\sum_{i\in I^u}c^2_i\leq 4^{m+1}3^{l-1}(M^uc_\mathrm{max})^2,
+\end{equation}
+where $c_\mathrm{max}:=\max_{1\leq i\leq r}|c_i|$.
+\end{proof}
+In addition to the variance bound provided by \cref{lemma:variance_energy}, proving \cref{theorem1} and \cref{theorem2} requires a bound on the magnitude of the single-shot estimator $\hat{\Delta E}$. This is given by the following lemma.
+\begin{lemma}[Single-Shot Bound for Energy-Difference Estimators]
+    \label{lemma:singleshot_energy}
+    Under the assumptions of Lemma~\ref{lemma:variance_energy}, the single-shot Pauli shadow estimator $\hat{\Delta E}$ satisfies the almost-sure bound
+    \begin{equation}
+        \left|\hat{\Delta E}\right|\leq2 M^u c_{\max} \, 4^{m} 3^{\,l-1}.
+    \end{equation}
+\end{lemma}
+\begin{proof}
+    We use the same linear representation of the energy-difference estimator as in the proof of Lemma~\ref{lemma:variance_energy},
+    \begin{equation}
+        \hat{\Delta E}=\sum_{i\in I^u}\sum_{j=0}^{4^m-1}f_{ij}\hat{p}_{ij},
+    \end{equation}
+    where $f_{ij}=c_i(\delta_{P_i^u,P_j^u}-r_{ij})$ and $\hat{p}_{ij}=\mathrm{Tr}\left(\hat{\rho}P^u_j\otimes P^c_i \right)$. By the triangle inequality,
+    \begin{equation}
+        \label{eq:ss_triangle}
+        \left|\hat{\Delta E}\right|\leq\sum_{i\in I^u}\sum_{j=0}^{4^m-1} |f_{ij}|\,|\hat p_{ij}|\leq f_\mathrm{max}\sum_{i\in I^u}\sum_{j=0}^{4^m-1}|\hat p_{ij}|,
+    \end{equation}
+    where
+    \begin{equation}
+        f_\mathrm{max}:=\max_{i\in I^u}\max_{0\leq j \leq 4^m-1}\left|f_{ij}\right|\leq 2c_\mathrm{max}.
+    \end{equation}
+    Let $\hat{\rho}$ be a classical shadow obtained from a single uniformly random local Pauli measurement, and let $P_S=P_S^u\otimes P^c_S$ denote the corresponding measurement Pauli. Then, for every single-shot estimator $\hat{p}_{ij}=\mathrm{Tr}\left(\hat{\rho}P^u_j\otimes P^c_i \right)$ it holds
+    \begin{equation}
+        \left| \hat{p}_{ij}\right|=\begin{cases}
+            3^{\mathrm{wt}(P^u_j)+\mathrm{wt}(P^c_i)}&\text{if $P^u_j\otimes P^c_i$ is compatible with $P_S$}\\
+            0&\text{otherwise}
+        \end{cases}\leq3^{l-1}\begin{cases}
+            3^{\mathrm{wt}(P^u_j)}&\text{if $P^u_j$ is compatible with $P_S^u$}\\
+            0&\text{otherwise}
+        \end{cases},
+    \end{equation}
+    where $\mathrm{wt}(P)$ denotes the locality of a given Pauli $P$. Furthermore, for every measurement basis $P_S=P^u_S\otimes P^c_S\in \mathcal{P}^n$, there are exactly $\binom{m}{k}$ $m$-qubit Pauli operators of locality $k$ which are compatible with $P^u_S$. Therefore, we find
+    \begin{equation}
+        \sum_{i\in I^u}\sum_{j=0}^{4^m-1}|\hat p_{ij}|\leq M^u3^{l-1}\sum^m_{k=0}\binom{m}{k}3^k=M^u3^{l-1}4^m
+    \end{equation}
+    Putting everything together, we obtain the final bound
+    \begin{equation}
+        \left|\hat{\Delta E}\right|\leq2 M^u c_{\max} \, 4^{m} 3^{\,l-1}.
+    \end{equation}
+\end{proof}
+We now combine the variance and single-shot bounds to prove \cref{theorem1} and \cref{theorem2}.
+
+\begin{proof}[Proof of \Cref{theorem1}]
+    Consider a collection of $N$ independent classical shadows $\{\hat{\rho}^i\}_{i=1}^N$ of $\ket{\psi}$ and define
+    \begin{align}
+        \hat{\Delta E}^i_j:=\mathrm{Tr}\left(\hat{\rho}^iH\right)-\mathrm{Tr}\left(\hat{\rho}^iU_j^\dagger HU_j\right)=\sum_{\alpha\in \mathcal{F}^j}f_{j, \alpha}\hat{p}^i_\alpha,\qquad X^i_j:=\hat{\Delta E}^i_j-\Delta E_j,
+    \end{align}
+    where $\hat{p}^i_\alpha=\mathrm{Tr}\left(\hat{\rho}^iP_\alpha\right)$ and $f_{j,\alpha}$, $P_\alpha$, and $\mathcal{F}^j$ are defined as in the proof of \cref{lemma:variance_energy}. Then $X^1_j,\ldots X^N_j$ are independent and satisfy $\mathbb{E}\left[X^i_j \right]=0$. We estimate $\Delta E_j$ using the empirical mean 
+    \begin{equation}
+        \bar{\Delta E}_j:=\frac{1}{N}\sum_{i=1}^N \hat{\Delta E}_j^i.
+    \end{equation}
+    Bernstein's inequality yields, for any $\epsilon>0$,
+    \begin{equation}
+        \mathrm{Pr}\left(\left|\Delta E_j-\bar{\Delta E}_j \right|\geq \epsilon\right)=\mathrm{Pr}\left(\left|\frac{1}{N}\sum_{i=1}^NX_j^i \right|\geq \epsilon \right)\leq 2\exp\left(-\frac{N\epsilon^2}{2\left( V+\frac{B\epsilon }{3}\right)} \right),
+    \end{equation}
+    provided that $\left|X^i_j\right|\leq B$ almost surely and $\mathbb{E}\left[\left(X^i_j \right)^2\right]=\mathrm{Var}\left[\hat{\Delta E}^i_j\right]\leq V$, for all $1\leq i\leq N$ and $1\leq j \leq K$. 
+    By $\cref{lemma:singleshot_energy}$ $\left| \hat{\Delta E}^i_j\right|\leq 2M_jc_\mathrm{max}4^{m_j}3^{l-1}:=B_j/2$, where $m_j$ denotes the locality of the unitary $U_j$. Furthermore, by realizing that $\Delta E_j=\mathbb{E}\left[\hat{\Delta E}^i_j\right]$, it also follows that $\left|\Delta E_j\right|\leq B_j/2$. Therefore, it follows that
+    \begin{equation}
+        \left| X^i_j\right|\leq B_j\leq  \max_{1\leq j\leq K}B_j=Mc_\mathrm{max}4^{m+1}3^{l-1}=:B.
+    \end{equation}
+    Moreover, by \cref{lemma:variance_energy},
+    \begin{equation}
+        \mathrm{Var}\left[\hat{\Delta E}^i_j\right]\leq 4^{m+1}3^{l-1}(Mc_\mathrm{max})^2=:V,
+    \end{equation}
+    and in particular $V\geq B$. 
+
+    Using a union bound over all $K$ energy differences and restricting to $\epsilon\in (0,1]$, we obtain
+    \begin{equation}
+        \mathrm{Pr}\left(\max_{1\leq j\leq K}\left|\Delta E_j-\bar{\Delta E}_j \right|\geq \epsilon\right)\leq 2K\exp\left(-\frac{3N\epsilon^2}{8V} \right).
+    \end{equation}
+    Then for any $\delta \in (0,1]$ choosing $N$ such that 
+    \begin{equation}
+        \delta\leq2K\exp\left(-\frac{3N\epsilon^2}{8V} \right)\Leftrightarrow N\geq \frac{8\log(2K/\delta)}{3\epsilon^2}V=\frac{32\log(2K/\delta)}{9\epsilon^2}4^m3^l(Mc_\mathrm{max})^2,
+    \end{equation}
+    is sufficient to ensure
+    \begin{equation}
+        \mathrm{Pr}\left(\max_{1\leq j\leq K}\left|\Delta E_j-\bar{\Delta E}_j \right|\geq \epsilon\right)\leq\delta.
+    \end{equation}
+\end{proof}
+\begin{proof}[Proof of \Cref{theorem2}]
+    We can decompose the parameter-dependent energy difference $\Delta E_j(\theta)$ into the trigonometric form
+    \begin{equation}
+        \Delta E_j(\theta)=\frac{1}{2}\left(A_j-A_j\cos(\theta)-B_j\sin(\theta)\right), 
+    \end{equation}
+    where $A_j:=\bra{\psi}H\ket{\psi}-\bra{\psi}X_jHX_j\ket{\psi}$ and $B_j:=\bra{\psi}i[X_j,H]\ket{\psi}$. This allows us to determine the global maximizer $\theta^*_j$ and the corresponding global maximum $\Delta E_{j,\mathrm{max}}$ analytically as
+    \begin{equation}
+        \theta^*_j =\arctan2(B_j, A_j),\qquad\Delta E_{j, \mathrm{max}}=\frac{1}{2}\left( A_j+\sqrt{A_j^2+B_j^2}\right).
+    \end{equation}
+    Since $X_j$ is Hermitian ($X_j=X_j^\dagger$) and satisfies $X_j^2=I$, it follows that $X_j$ is unitary and has locality $m_j\leq m$. Therefore, $A_j$ is of the same form as the energy differences considered in \cref{lemma:variance_energy} and \cref{lemma:singleshot_energy}. Hence, using $m_j\leq m$ and $M_j\leq M$, we obtain the uniform bounds
+    \begin{equation}
+        \mathrm{Var}[\hat{A}_j]\leq 4^{m+1}3^{l-1}(Mc_\mathrm{max})^2,\qquad \left| \hat{A}_j \right|\leq 2Mc_\mathrm{max}4^m3^{l-1},
+    \end{equation}
+    where $\hat{A}_j$ denotes the single-shot shadow estimator of $A_j$. $B_j=\bra{\psi}i[X_j,H]\ket{\psi}$ is of slightly different form. However, since $X_j$ acts nontrivially only on $m_j$ qubits, the commutator $i[X_j, H]$ can be expanded in the Pauli basis on the support of $X_j$ yielding a linear representation $B_j=\sum_{\alpha \in \mathcal{F}^j}f'_{j,\alpha}p_\alpha$, where $\mathcal{F}^j$ and $p_\alpha$ are defined as in the proof of \cref{lemma:variance_energy}. Moreover, the corresponding coefficient vectors satisfy $\norm{f'_j}^2_2\leq 4\sum_{i\in I^j}c_i^2$ and $\max_{\alpha\in \mathcal{F}^j}\left|f'_{j,\alpha}\right|\leq 2c_\mathrm{max}$. Here, $I^j$ denotes the set of Hamiltonian indices $i$ such that the support of $P_i$ overlaps with the support of $X_j$. Therefore, by the same arguments as in \cref{lemma:variance_energy} and $\cref{lemma:singleshot_energy}$, and using $m_j\leq m$ and $M_j\leq M$, we obtain the bounds 
+    \begin{equation}
+        \mathrm{Var}[\hat{B}_j]\leq 4^{m+1}3^{l-1}(Mc_\mathrm{max})^2,\qquad \left| \hat{B}_j \right|\leq 2Mc_\mathrm{max}4^m3^{l-1},
+    \end{equation}
+    where $\hat{B}_j$ denotes the single-shot shadow estimator of $B_j$. Therefore, similarly to the proof of \cref{theorem1}, we can now apply Bernstein's inequality and a union bound over all $2K$ operators to conclude that for any $\epsilon_F, \delta \in (0,1]$
+    \begin{equation}
+        N=\frac{32\log(4K/\delta)}{9\epsilon^2_F}4^m3^lM^2c^2_\mathrm{max}
+    \end{equation}
+    independent classical shadows are sufficient to ensure
+    \begin{equation}
+        \label{eq:event}
+        \mathrm{Pr}\left(\max_{1\leq j\leq K}\max\left(\left|A_j-\bar{A}_j\right|, \left|B_j-\bar{B}_j\right|\right)\geq \epsilon_F\right)\leq \delta,
+        %\mathrm{Pr}\left(\forall j:\left(\left|A_j-\bar{A}_j\right|\leq \epsilon_F\ \text{and}\ \left|B_j-\bar{B}_j\right|\right)\leq \epsilon_F\right)\geq 1-\delta,
+    \end{equation}
+    where $\bar{A}_j$ and $\bar{B}_j$ denote the empirical means over all $N$ single-shot estimators. 
+    We can use $\bar{A}_j$ and $\bar{B}_j$ to define the parameter-dependent energy difference estimator
+    \begin{equation}
+        \bar{\Delta E}_j(\theta)=\frac{1}{2}(\bar{A}_j-\bar{A}_j\cos(\theta)-\sin(\theta)\bar{B}_j), 
+    \end{equation}
+    whose global maximizer $\bar{\theta}^*_j$ and corresponding global maximum are given by
+    \begin{equation}
+        \bar{\theta}^*_j=\arctan2(\bar{B}_j, \bar{A}_j),\qquad \bar{\Delta E}_{j, \mathrm{max}}=\frac{1}{2}\left(\bar{A}_j+\sqrt{\bar{A}^2_j+\bar{B}^2_j} \right).
+    \end{equation}
+    Therefore, using the inequality $\left|\norm{x}_2-\norm{y}_2\right|\leq \norm{x-y}_2$ for the Euclidean norm, we find
+    \begin{equation}
+        |\Delta E_{j, \mathrm{max}}-\bar{\Delta E}_{j, \mathrm{max}}|=\frac{1}{2}\left|A_j-\bar{A_j}+\sqrt{A^2_j+B^2_j}-\sqrt{\bar{A}^2_j+\bar{B}^2_j} \right|\leq \frac{\left|A_j-\bar{A}_j\right|+\sqrt{\left(A_j-\bar{A}_j\right)^2+\left(B_j-\bar{B}_j\right)^2}}{2}.
+    \end{equation}
+    On the event in \cref{eq:event} (which holds with probability at least $1-\delta$), we have
+    \begin{equation}
+        |\Delta E_{j, \mathrm{max}}-\bar{\Delta E}_{j, \mathrm{max}}|\leq \frac{1+\sqrt{2}}{2}\epsilon_F
+    \end{equation}
+    for all $1\leq j \leq K$. Therefore, guaranteeing that  $|\Delta E_{j, \mathrm{max}}-\bar{\Delta E}_{j, \mathrm{max}}|\leq\epsilon$ necessitates $\epsilon_F\leq \frac{2}{1+\sqrt{2}}\epsilon$ and therefore
+    \begin{equation}
+        N=\frac{(3+2\sqrt{2})8\log(4K/\delta)}{9\epsilon^2}4^m3^lM^2c^2_\mathrm{max}
+    \end{equation}
+    independent classical shadows. 
+    Furthermore, we have
+    \begin{equation}
+        \left|\bar{\Delta E}_j(\theta)-\Delta E_j(\theta)\right|=\frac{1}{2}\left|\bar{A}_j-A_j-\left(\bar{A}_j-A_j\right)\cos(\theta)-\left(\bar{B}_j-B_j \right)\sin(\theta)\right|.
+    \end{equation}
+    Maximizing over $\theta\in[0,2\pi)$ yields
+    \begin{equation}
+        \max_{\theta}\left|\bar{\Delta E}_j(\theta)-\Delta E_j(\theta)\right|= \frac{\left|A_j-\bar{A}_j\right|+\sqrt{\left(A_j-\bar{A}_j\right)^2+\left(B_j-\bar{B}_j\right)^2}}{2}.
+    \end{equation}
+    Therefore, using $\bar{\Delta E}_{j,\mathrm{max}}=\bar{\Delta E}_j(\bar{\theta}^*_j)$, it follows
+    \begin{equation}
+        \left|\Delta E_j(\bar{\theta}^*_j)-\bar{\Delta E}_{j,\mathrm{max}}\right|\leq \epsilon.
+    \end{equation}
+    Equivalently, using $\Delta E_{j,\mathrm{max}}={\Delta E}_j({\theta}^*_j)$, it follows
+    \begin{align}
+        \left|\Delta E_j(\bar{\theta}^*_j)-\Delta E_{j,\mathrm{max}}\right|&=\Delta E_j(\theta^*_j)-\Delta E_j(\bar{\theta}^*_j)\\&=\Delta E_j(\theta^*_j)-\bar{\Delta E}_j({\theta}^*_j)+\bar{\Delta E}_j({\theta}^*_j)-\Delta E_j(\bar{\theta}^*_j)\\&\leq \left|\Delta E_j(\theta^*_j)-\bar{\Delta E}_j({\theta}^*_j)\right|+\left|\bar{\Delta E}_j(\bar{\theta}^*_j)-\Delta E_j(\bar{\theta}^*_j)\right|\\
+        &\leq 2\epsilon,
+    \end{align}
+    where we have added and subtracted $\bar{\Delta E}_j(\theta^*_j)$ and used that $\bar{\Delta E}_j(\bar{\theta}^*_j)\geq\bar{\Delta E}_j({\theta}^*_j)$. Therefore, we can conclude that, with probability $1-\delta$, applying $U_j(\bar{\theta}^*_j)$ to $\ket{\psi}$ will yield an actual energy decrease that is at most $\epsilon$ smaller than the estimated maximal energy difference $\bar{\Delta E}_{j,\mathrm{max}}$ and at most $2\epsilon$ smaller than the true maximal energy difference $\Delta E_{j,\mathrm{max}}$.
+\end{proof}
+Notably, once $A_j$ and $B_j$ are estimated up to additive error $\frac{2}{1+\sqrt{2}}\epsilon$, the function $\Delta E_j(\theta)$ can be evaluated uniformly in $\theta\in[0,2\pi)$ up to additive error $\epsilon$. Since SEGQE only requires the maximal energy differences and the corresponding optimal parameters, we do not state this explicitly in \cref{theorem2}. %For arbitrary parametrized unitaries, uniform evaluation comes at a higher cost. This is formalized in the following proposition.
+\begin{proof}[Proof of \Cref{cor:pauli-rotations}]
+Pauli operators $P\in\mathcal P^n$ satisfy $P^2=I$ and are Hermitian, and therefore belong to the class of generators considered in \cref{theorem2}. We specialize \cref{theorem2} to the case where $X_j=P_j$ ranges over all $m$-local Pauli operators. The key simplification in this setting is that conjugation by a Pauli operator does not mix Pauli strings.
+Indeed, for any Pauli operators $P_j$ and $P_i$ that anticommute and have localities $m_j$ and $m_i$, one has $P_j P_i P_j = - P_i$ and $i[P_j,P_i] = 2P_jP_i$ (up to a phase), where $P_jP_i$ is a single Pauli operator of locality at most $m_i+m_j-1$. As a consequence, for Pauli rotations the coefficients $A_j$ and $B_j$ defined in the proof of \cref{theorem2} decompose into sums of $M_j$ Pauli expectation values instead of $M_j4^{m_j}$ Pauli terms as in the general case. Therefore, when calculating upper bounds on the variance and magnitude of the single-shot estimators $\hat{A}_j$ and $\hat{B}_j$, we can use a factor $3^m$ instead of $4^m$. Notably, the quantity $A_j$ does not depend on the locality of $P_j$. Accordingly, its variance and single-shot bounds are independent of $m$. For consistency with the bounds on $\hat B_j$, we retain the looser uniform bounds stated above. 
+Finally, the total number of $n$-qubit, $m$-local Pauli generators is $4^m\binom{n}{m}$. Applying a union bound over this set and proceeding exactly as in the proof of \cref{theorem2} gives the stated sample complexity, which is asymptotically smaller by a factor of $\left(\frac{3}{4}\right)^m$ than in the general case considered in \cref{theorem2}.
+\end{proof}
+
+\section{Transverse-Field Ising model}
+\label{app:tfi}
+Consider the Hamiltonian of the TFI model defined as
+\begin{equation}
+    H=w\sum^n_{i=1}Z_i+J\sum^{n-1}_{i=1}X_iX_{i+1},
+\end{equation}
+where $w$ denotes the strength of the transverse field, $J$ the nearest neighbor coupling constant, and $n$ the number of spins (qubits). We show that, for this specific Hamiltonian, the worst-case per-iteration measurement cost of SEGQE (taking all two-local Pauli rotations as gate set) can be upper bounded by constants that are substantially smaller than the general worst-case bound of \cref{cor:pauli-rotations}.
+
+Following the proof of \cref{theorem2}, for a two-local Pauli generator $P$ we define
+\begin{equation}
+    A_P := \bra{\psi}H\ket{\psi} - \bra{\psi}PHP\ket{\psi},
+    \qquad
+    B_P := \bra{\psi} i[P,H]\ket{\psi},
+\end{equation}
+and let $\hat A_P$ and $\hat B_P$ denote the corresponding single-shot classical-shadow estimators. We bound their variance from above by their second moment and bound the second moments of two Pauli estimators $\hat{p}_\alpha$ and $\hat{p}_\beta$ corresponding to the Pauli operators $P_\alpha$ and $P_\beta$ by 
+\begin{equation}
+    \mathbb{E}\!\left[\hat P_\alpha\,\hat P_\beta\right]
+    \;\le\;
+    \begin{cases}
+        3^{L} & \text{if $P_\alpha$ and $P_\beta$ commute qubit-wise,}\\
+        0     & \text{otherwise,}
+    \end{cases}
+\end{equation}
+where $L$ denotes the number of qubits on which both $P_\alpha$ and $P_\beta$ act nontrivially.
+Due to the locality of $H$, the expansions of $A_P$ and $B_P$ involve only Hamiltonian terms overlapping the support of $P$. For two-local generators, the resulting covariance structures depend only on the relative separation of the two sites, and it therefore suffices to consider nearest neighbor and next-nearest neighbor choices. As an example, assume $n\geq 5$ and take the next-nearest neighbor generator $P = Y_2Y_4$. A direct computation gives
+\begin{equation}
+    A_P = 2w(Z_2+Z_4)+2J(X_1X_2+X_2X_3+X_3X_4+X_4X_5).
+\end{equation}
+Ordering the six Pauli terms in $A_P$ as $(Z_2, Z_4, X_1X_2, X_2X_3,X_3X_4,X_4X_5)$, the above second-moment bound implies
+\begin{equation}
+    \mathrm{Var}[\hat A_P] \;\le\; f^\top K f,
+\end{equation}
+with $f^\top = 2(w,w,J,J,J,J)$ and
+\begin{equation}
+    K=\begin{pmatrix}
+        3&1&0&0&1&1\\
+        1&3&1&1&0&0\\
+        0&1&9&3&1&1\\
+        0&1&3&9&3&1\\
+        1&0&1&3&9&3\\
+        1&0&1&1&3&9
+    \end{pmatrix}.
+\end{equation}
+Consequently,
+\begin{equation}
+    \mathrm{Var}[\hat A_P]
+    \le 32w^2 + 32wJ + 240J^2
+    \le 304\,\max(w^2,J^2),
+\end{equation}
+which is more than an order of magnitude smaller than the corresponding worst-case prefactor implied by \cref{cor:pauli-rotations},
+$\mathrm{Var}[\hat A_P]\le 3888\,\max(w^2,J^2)$. An analogous calculation yields
+\begin{equation}
+    \mathrm{Var}[\hat B_P] \;\le\; 648\,\max(w^2,J^2).
+\end{equation}
+Repeating this procedure for all two-local Pauli generators on nearest neighbor and next-nearest neighbor pairs, we find that the prefactor $648$ is the largest value attained for $\mathrm{Var}[\hat B_P]$ under the above covariance bound. Therefore, for the TFI model the model-specific worst-case constants entering the per-iteration sample complexity are smaller by a factor of $6$ compared to the general worst-case estimate of \cref{cor:pauli-rotations}. 
+
+Furthermore, in all numerical simulations of SEGQE applied to the TFI model (see \cref{sec:TFI}), we observe that, when starting from the product state $\ket{0}^{\otimes n}$, the algorithm exclusively selects Pauli rotations generated by $XY$ and $YX$ operators (see \cref{fig:example_circuit}). 
+\begin{figure}
+    \begin{center}
+        \tikzfig{nQubits6_J1}
+    \end{center}
+    \caption{Example circuit generated by SEGQE for the open-boundary transverse-field Ising model at criticality with $n=6$ qubits, starting from the initial state $\ket{0}^{\otimes n}$. Each block represents a two-qubit Pauli rotation, and its label denotes the Pauli operator generating the gate. The integer shown on each block denotes the SEGQE iteration at which the corresponding gate was appended.}
+    \label{fig:example_circuit}
+\end{figure}
+Restricting the gate set to the Pauli rotations corresponding to these generators, allows for a further tightening of the variance bounds. In particular, we obtain
+\[
+\mathrm{Var}[\hat A_P]\le 136\,\max(w^2,J^2), \qquad
+\mathrm{Var}[\hat B_P]\le 216\,\max(w^2,J^2)
+\]
+for $P=X_iY_{i+1}$, and
+\[
+\mathrm{Var}[\hat A_P]\le 144\,\max(w^2,J^2), \qquad
+\mathrm{Var}[\hat B_P]\le 360\,\max(w^2,J^2)
+\]
+for $P=X_iY_{i+j}$ with $j>1$.
+
+As a result, the upper bounds on the measurement cost relevant for the numerical experiments presented in \cref{sec:TFI} are more than an order of magnitude smaller than the conservative worst-case bound provided by \cref{cor:pauli-rotations}.
+
+

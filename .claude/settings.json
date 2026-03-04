@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python segqe_qiskit.py)",
+      "Bash(pip install qiskit pennylane)",
+      "Bash(pip install qiskit pennylane --break-system-packages)",
+      "Bash(python -c \"import qiskit; print\\(qiskit.__version__\\)\")",
+      "Bash(/mnt/hdd/miniconda3/bin/pip install qiskit pennylane)"
+    ]
+  }
+}

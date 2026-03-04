@@ -1,0 +1,34 @@
+\begin{figure}[htbp]
+    \begin{minipage}{1\linewidth}
+        \begin{algorithm}[H]
+  \caption{Shadow Enhanced Greedy Quantum Eigensolver (SEGQE)}
+  \label{alg:segqe}
+  \begin{algorithmic}[1]
+    \Require Hamiltonian $H = \sum_{i=1}^r c_i P_i$, initial state $\ket{\psi_0}$,
+             gate set $\mathcal{G} = \{U_j(\theta)\}_{j=1}^K$, 
+             maximum depth $D$, threshold $\Delta > 0$
+    \State $C_0 \gets I$, $k \gets 0$
+    \While{$k < D$}
+      \State $\ket{\psi_k} \gets C_k \ket{\psi_0}$
+      \State Record $N$ independent shadows $\{\hat{\rho}_k^{(t)}\}_{t=1}^N$ of $\ket{\psi_k}$
+      \State Use shadows to estimate all required $p_{j,\alpha}$ 
+      \State $\Delta E_{\mathrm{max}} \gets 0$, $(j^*, \theta^*) \gets \text{None}$
+      \ForAll{candidate gates $U_j(\theta) \in \mathcal{G}$}
+        \State Use $p_{j,\alpha}$ to classically find $\theta^*_j=\underset{\theta}{\arg\max} \Delta E_{k,j}(\theta)$
+        \If{$\Delta E_{k,j}(\theta^*_j) > \Delta E_{\mathrm{max}}$}
+          \State $\Delta E_{\mathrm{max}} \gets \Delta E_{k,j}(\theta^*_j)$
+          \State $(j^*, \theta^*) \gets (j, \theta^*_j)$
+        \EndIf
+      \EndFor
+      \If{$\Delta E_{\mathrm{max}} \le \Delta$}
+        \State \textbf{break}  %\Comment{no sufficiently large energy reduction}
+      \EndIf
+      \State $C_{k+1} \gets U_{j^*}(\theta^*) C_k$
+      \State $k \gets k + 1$
+    \EndWhile
+    \State \Return $C_k$%, $E_k$
+  \end{algorithmic}
+\end{algorithm}
+    \end{minipage}
+
+\end{figure}

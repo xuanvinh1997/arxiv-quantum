@@ -1,0 +1,47 @@
+\subsection{Per-Iteration Guarantees}
+\label{sec:guarantees}
+Throughout this section, we consider an $n$-qubit Hamiltonian $H=\sum_{i=1}^r c_iP_i$, where each Pauli operator $P_i$ has locality at most $l$, and we define $c_\mathrm{max}:=\max_i|c_i|$. Furthermore, for a set $S$ of $n$-qubit operators, we denote by $M(S)$ the maximal number of Hamiltonian terms whose support overlaps nontrivially with the support of any single operator in $S$. If the locality of the operators in $S$ is bounded, $M(S)$ is closely related to the sparsity of $H$. For a state $\ket{\psi}$ and a unitary $U$, we define the energy differences
+\begin{equation}
+    \Delta E_{\psi}(U):=\bra{\psi}H\ket{\psi}-\bra{\psi}U^\dagger HU\ket{\psi}.
+\end{equation}
+As described in \cref{sec:procedure}, at iteration $k$ for a given set of candidate gates $\mathcal{G}=\{U_j(\theta)\}^K_{j=1}$, SEGQE maximizes the energy differences $\Delta E_{\psi_k}\left(U_j(\theta)\right)$ for all gates $U_j(\theta)\in\mathcal{G}$ over $\theta$ and compares their values at their respective optimal parameter values. 
+\begin{theorem}
+    \label{theorem1}
+    Let $\ket{\psi}$ be an arbitrary $n$-qubit state and $\mathcal{G}=\{U_j\}_{j=1}^K$ a finite collection of unitaries with locality at most $m\leq n$. Define $M := M(\mathcal{G})$. Then, for any $\epsilon, \delta \in (0,1]$, a collection of
+    \begin{equation}
+        N =\frac{32\log\left(2K/\delta\right)}{9\epsilon^2}4^m3^{l}M^2c_\mathrm{max}^2
+    \end{equation}
+    independent classical shadows of $\ket{\psi}$ obtained from uniformly random local Pauli measurements is sufficient to simultaneously estimate, up to additive error at most $\epsilon$ and failure probability at most $\delta$, the energy differences $\Delta E_{\psi}(U_j)$ for all $j=1,...,K$.
+\end{theorem}
+\Cref{theorem1} guarantees that once a finite set of unitaries $\{U_j(\theta^*_j)\}_{j=1}^K$ has been specified, their associated energy differences can be compared with high confidence. In particular, it enables reliable verification that the selected gate yields a genuine energy decrease, provided $\Delta E_{\psi_k}(U_{j^*}(\theta^*_{j^*}))>\epsilon$.
+Notably, however, \cref{theorem1} does not provide guarantees for the uniform evaluation of a continuous parameter space, but applies only to a collection of fixed unitaries. Therefore, if one wishes to obtain guarantees for all parameter values queried during the optimization procedure---which may be necessary to identify a good maximizer---one must treat each parameter setting as a distinct unitary. If the classical optimizer requires at most $T$ function evaluations per gate, the total number of queried unitaries is at most $KT$, leading to a worst-case measurement cost scaling logarithmically in $KT$. In practice, one may impose a maximum number of per-iteration, per-gate function evaluations $T_\mathrm{max}$ as an explicit input parameter to SEGQE, thereby allocating the classical optimizer a fixed evaluation budget. 
+
+Maximizing the energy differences associated with arbitrarily parametrized unitaries can be challenging and may require many function evaluations. In contrast, for unitaries of the form $U_j(\theta)=e^{-i\frac{\theta}{2}X_j }$ with $X_j^2=I$, as is the case for Pauli rotations commonly used in practice, the energy difference $\Delta E_\psi(U_j(\theta))$ admits an analytical determination of the maximizer. Such involutory generators are therefore particularly well suited for SEGQE. \Cref{theorem2} provides an upper bound on the measurement cost required to accurately estimate these global maxima and compute corresponding maximizing parameters for a finite collection of such unitaries, thereby yielding an explicit per-iteration sample complexity bound in this setting.
+
+\begin{theorem}
+    \label{theorem2}
+    Given $\ket{\psi}$ as an arbitrary $n$-qubit state, we assume $\mathcal{S}=\{X_j\}_{j=1}^K$ is a finite collection of Hermitian gate generators
+    with locality at most $m\leq n$ satisfying $X_j^2=I$, which define the unitaries $U_j(\theta):=\exp\left(-i\frac{\theta}{2}X_j\right)$.
+    Let $M:=M(\mathcal{S})$. Then, for any $\epsilon, \delta \in (0,1]$, a collection of
+    \begin{equation}
+        N =\frac{\left(3+2\sqrt{2}\right)8\log\left(4K/\delta\right)}{9\epsilon^2}4^m3^{l}M^2c_\mathrm{max}^2
+    \end{equation}
+    independent classical shadows of $\ket{\psi}$ obtained from uniformly random local Pauli measurements is sufficient to simultaneously estimate, up to additive error at most $\epsilon$ and failure probability at most $\delta$, the maximal values of the energy differences $\Delta E_\psi(U_j)(\theta)$ for all $j=1,\ldots,K$. Moreover, from the same data one can compute estimators $\bar{\theta}^*_j\in [0,2\pi)$ of the maximizers $\theta^*_j\in [0,2\pi)$ such that, with probability at least $1-\delta$, the energy decrease achieved by applying $U_j(\bar{\theta}^*_j)$ to $\ket{\psi}$ deviates by at most $\epsilon$ from the estimated maximum and by at most $2\epsilon$ from the true maximum.
+\end{theorem}
+
+Pauli operators $P\in\mathcal{P}^n$ satisfy $P^2=I$ and therefore fall within the class of generators considered in \cref{theorem2}. In particular, when the
+gate set considered by SEGQE consists of all parameterized Pauli rotations with locality at most $m$, the resulting per-iteration sample complexity is given by the following corollary.
+\begin{corollary}
+    \label{cor:pauli-rotations}
+    In the special case of \cref{theorem2} where the gate generators are given by
+    $\mathcal{S}:= \{P\in \mathcal{P}^n:\text{$P$ has locality at most $m$}\}$, that is, all Pauli operators on $n$ qubits with locality at most $m$,
+    for any $\epsilon, \delta \in (0,1]$, a collection of 
+    \begin{equation}
+        N =\frac{\left(3+2\sqrt{2}\right)8\log\left(4^{m+1}\binom{n}{m}/\delta\right)}{9\epsilon^2}3^{m+l}M^2c_\mathrm{max}^2
+    \end{equation}
+    independent classical shadows of $\ket{\psi}$ obtained from uniformly random local Pauli measurements is sufficient to guarantee the conclusions of \cref{theorem2}.
+\end{corollary}
+Both \cref{theorem1} and \cref{theorem2}, as well as \cref{cor:pauli-rotations}, provide worst-case upper bounds on the per-iteration sample complexity of SEGQE. In all cases, the measurement cost scales exponentially in both the locality $m$ of the candidate gates and the locality $l$ of the Hamiltonian terms, while depending only logarithmically on the number of considered gates. The exponential dependence on the Hamiltonian locality $l$ restricts SEGQE to local Hamiltonians, and the exponential dependence on $m$ restricts the practicality of SEGQE to local gate sets. On the other hand, the logarithmic dependence on the size of the gate sets implies that considering many local gates incurs only a mild measurement overhead. Furthermore, for fixed gate locality, the number of candidate gates grows at most polynomially with system size $n$. As a result, the per-iteration sample complexity depends on $n$ only logarithmically through the size of the gate set. Moreover, the sample complexity scales quadratically with the parameter $M$ and with the magnitude of the Hamiltonian coefficients $c_i$. This reflects the fact that, for each unitary $U_j$, 
+only Hamiltonian terms overlapping its support contribute to the corresponding 
+energy difference. As a result, the estimation error is governed by the local interaction structure of the Hamiltonian rather than by the total system size. In particular, for sparse interaction structures $M$ remains bounded as the system size grows, whereas for dense objectives $M$ may grow with system size, leading to higher measurement cost.
+Finally, we emphasize that all bounds presented above are worst-case guarantees and are generally not tight. In practice, exploiting the structure of a specific Hamiltonian can substantially reduce the number of measurement shots required; see \cref{app:tfi} for an explicit example based on the transverse-field Ising model. Full proofs are deferred to \cref{appendix:proofs}. 

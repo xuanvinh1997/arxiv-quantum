@@ -1,0 +1,111 @@
+\documentclass[prx,superscriptaddress,aps, twocolumn, 10pt,longbibliography, floatfix]{revtex4-2}
+
+\input{packs.tex}
+
+\newcommand\red[1]{{\color{red}#1}}
+\newcommand\blue[1]{{\color{blue}#1}}
+\newcommand\green[1]{{\color{green}#1}}
+\newcommand{\RED}[1]{\textcolor{red}{#1}}
+\newcommand{\BLUE}[1]{\textcolor{blue}{#1}}
+\newcommand{\GREEN}[1]{\textcolor{green}{#1}}
+\newcommand{\BROWN}[1]{\textcolor{brown}{#1}}
+\newcommand{\CYAN}[1]{\textcolor{cyan}{#1}}
+\newcommand{\MAG}[1]{\textcolor{magenta}{#1}}
+
+
+\usepackage{amsthm}
+\newtheorem{result}{Result}
+\newtheorem{remark}{Remark}
+\newtheorem{definition}{Definition}
+\newtheorem{statement}{Statement}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{example}{Example}
+\Crefname{theorem}{Theorem}{Theorems}
+\theoremstyle{remark}
+
+
+\newcommand{\sign}{\text{sign}}
+\renewcommand{\tr}{\mathrm{Tr}}
+\newcommand{\Ht}{H$_2$ }
+\newcommand{\cf}{\mathbf{F}_C}
+\newcommand{\qf}{\mathbf{F}_Q}
+\newcommand{\matra}{\mathbf{A}}
+\newcommand{\matrm}{\mathbf{M}}
+\newcommand{\f}{f_\mathrm{id}}
+\newcommand{\im}{\mathrm{Im}}
+\newcommand{\re}{\mathrm{Re}}
+\renewcommand{\var}{\mathrm{Var}}
+\newcommand{\spec}{\mathrm{Spc}}
+\newcommand{\cond}{\mathrm{Cnd}}
+
+\renewcommand{\dmat}{\mathbf{D}}
+\newcommand{\cmat}{\mathbf{C}}
+\newcommand{\ttot}{N_T}
+\newcommand{\nshot}{N_s}
+\newcommand{\nes}{N_E}
+\newcommand{\emshadow}{H}
+
+\newcommand{\nc}{c}
+\renewcommand{\xmat}{\mathbf{X}}
+
+\newcommand{\nobs}{N_o}
+\newcommand{\rhoerr}{\rho_{err}}
+\newcommand{\rhoid}{\rho_{id}}
+
+\newcommand{\qmaddress}{\affiliation{Quantum Motion, 9 Sterling Way, London N7 9HJ, United Kingdom}}
+\newcommand{\oxaddress}{\affiliation{Mathematical Institute, University of Oxford, Woodstock Road, Oxford OX2 6GG, United Kingdom}}
+\newcommand{\mrnaaddress}{\affiliation{Moderna, Cambridge, MA 02139, USA}}
+
+
+\newcommand{\matt}[1]{{\color{green}#1}}
+
+\begin{document}
+	
+	
+	
+% --------------------  TITLE  --------------------
+\title{A Shadow Enhanced Greedy Quantum Eigensolver}
+
+\author{Jona Erle}
+\email{jona.erle@balliol.ox.ac.uk}
+\oxaddress
+\qmaddress
+\mrnaaddress
+
+
+\author{B\'alint Koczor}
+\email{balint.koczor@maths.ox.ac.uk}
+\oxaddress
+\qmaddress
+
+\begin{abstract}
+While ground-state preparation is expected to be a primary application of quantum computers, it is also an essential subroutine for many fault-tolerant algorithms. 
+In early fault-tolerant regimes, logical measurements remain costly, motivating adaptive, shot-frugal state-preparation strategies that efficiently utilize each measurement.
+We introduce the Shadow Enhanced Greedy Quantum Eigensolver (SEGQE) as a greedy, shadow-assisted framework for measurement-efficient ground-state preparation. SEGQE uses classical shadows to evaluate---in parallel and entirely in classical post-processing---the energy reduction induced by large collections of local candidate gates, greedily selecting at each step the gate with the largest estimated energy decrease. 
+We derive rigorous worst-case per-iteration sample-complexity bounds for SEGQE, exhibiting logarithmic dependence on the number of candidate gates. Numerical benchmarks on finite transverse-field Ising models and ensembles of random local Hamiltonians demonstrate convergence in a number of iterations that scales approximately linearly with system size, while maintaining high-fidelity ground-state approximations and competitive energy estimates.
+Together, our empirical scaling laws and rigorous per-iteration guarantees establish SEGQE as a measurement-efficient state-preparation primitive well suited to early fault-tolerant quantum computing architectures.
+\end{abstract}
+
+
+\maketitle
+\input{src/introduction}
+\input{src/results.tex}
+\input{src/results2}
+\input{src/numerics}
+\input{src/conclusion}
+\input{src/acknowledgments}
+
+\bibliographystyle{apsrev4-2}
+\bibliography{refs}
+
+\onecolumngrid
+\appendix
+\crefalias{section}{appendix}
+
+
+\input{src/appendix}
+
+\end{document}
