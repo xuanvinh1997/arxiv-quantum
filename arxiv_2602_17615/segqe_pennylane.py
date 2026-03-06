@@ -512,7 +512,10 @@ def segqe(
                 A, B = compute_A_B_from_shadows(shadows, gen, ham_terms, num_qubits)
 
             # Optimal parameters for Pauli rotation
-            theta_star = np.arctan2(B, A)
+            # ΔE(θ) = ½(A - A cos θ - B sin θ)
+            # Maximum at θ* = atan2(-B, -A)  [minimizes A cos θ + B sin θ]
+            # ΔE_max = ½(A + √(A² + B²))
+            theta_star = np.arctan2(-B, -A)
             dE_max = 0.5 * (A + np.sqrt(A**2 + B**2))
 
             if dE_max > best_dE:

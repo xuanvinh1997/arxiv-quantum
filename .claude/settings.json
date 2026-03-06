@@ -5,7 +5,20 @@
       "Bash(pip install qiskit pennylane)",
       "Bash(pip install qiskit pennylane --break-system-packages)",
       "Bash(python -c \"import qiskit; print\\(qiskit.__version__\\)\")",
-      "Bash(/mnt/hdd/miniconda3/bin/pip install qiskit pennylane)"
+      "Bash(/mnt/hdd/miniconda3/bin/pip install qiskit pennylane)",
+      "Bash(conda env list)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python -c \"import qiskit; print\\(''qiskit'', qiskit.__version__\\)\")",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python -c \"import pennylane; print\\(''pennylane'', pennylane.__version__\\)\")",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/pip install qiskit pennylane)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_qiskit.py)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_pennylane.py)",
+      "Bash(ls -la /mnt/ssd/workspaces/vinhpx/quantum-research/arxiv_2602_17615/figures/plot*.pdf)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_plots.py --figure 1 --max-n 6)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_plots.py --figure 4 --n-instances 5)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_plots.py --figure 3 --max-n 5 --n-instances 5)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_plots.py --figure 1 --max-n 10 --recompute)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_plots.py --figure 4 --n-instances 50 --recompute)",
+      "Bash(/mnt/hdd/miniconda3/envs/research/bin/python segqe_plots.py --figure 3 --max-n 8 --n-instances 50 --recompute)"
     ]
   }
 }

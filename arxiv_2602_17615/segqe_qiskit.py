@@ -367,9 +367,9 @@ def segqe(
 
             # Optimal parameters for Pauli rotation
             # ΔE(θ) = ½(A - A cos θ - B sin θ)
-            # θ* = atan2(B, A)
+            # Maximum at θ* = atan2(-B, -A)  [minimizes A cos θ + B sin θ]
             # ΔE_max = ½(A + √(A² + B²))
-            theta_star = np.arctan2(B, A)
+            theta_star = np.arctan2(-B, -A)
             dE_max = 0.5 * (A + np.sqrt(A**2 + B**2))
 
             if dE_max > best_dE:
