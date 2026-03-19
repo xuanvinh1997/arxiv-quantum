@@ -5,3 +5,17 @@ __pycache__/
 *.swp
 
 data/
+
+# latex auxiliary files
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.nav
+*.snm
+*.vrb
+*.fdb_latexmk
+*.synctex.gz
