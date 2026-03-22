@@ -53,7 +53,7 @@
 % ── Packages ──
 \usepackage{amsmath, amssymb, braket, physics}
 \usepackage{tikz}
-\usetikzlibrary{positioning, arrows.meta, calc, decorations.pathreplacing}
+\usetikzlibrary{positioning, arrows.meta, calc, decorations.pathreplacing, shapes.geometric}
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{listings}
@@ -86,7 +86,7 @@
 
 % ── Meta ──
 \title{Matrix Product States}
-\subtitle{Nghiên cứu lung tung}
+\subtitle{Tensor Network cho hệ lượng tử}
 \author{VinhPX}
 \date{2026}
 
@@ -95,22 +95,221 @@
 % ══════════════════════════════════════
 % TITLE
 % ══════════════════════════════════════
-\begin{frame}[plain]
+\begin{frame}[plain, shrink=3]
 \maketitle
 \end{frame}
 
 % ══════════════════════════════════════
-% WHAT IS MPS
+% BRIDGE: Tổng quan bài trình bày
 % ══════════════════════════════════════
-\begin{frame}{Matrix Product States là gì?}
+\begin{frame}[shrink=3]{Tổng quan}
 
-Trạng thái lượng tử $N$ hạt đòi hỏi $d^N$ số phức để mô tả đầy đủ — \warn{bùng nổ tổ hợp}. MPS biểu diễn hiệu quả qua tích chuỗi ma trận:
+\vspace{6pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.88, transform shape,
+  sec/.style={rounded corners=5pt, minimum width=3cm, minimum height=0.9cm, align=center, font=\small\bfseries},
+  arr/.style={-{Stealth[length=5pt]}, thick, color=dimtext}
+]
+  % Tracks
+  \node[sec, fill=qcyan!15, draw=qcyan, text=qcyan] (found) at (0,0) {Nền tảng\\[-2pt]{\tiny\normalfont MPS, SVD, canonical, MPO}};
+  \node[sec, fill=qpurple!15, draw=qpurple, text=qpurple] (algo) at (4.5,0) {Thuật toán\\[-2pt]{\tiny\normalfont DMRG, TEBD, TDVP}};
+  \node[sec, fill=qpink!15, draw=qpink, text=qpink] (geom) at (9,0) {Hình học \& Giới hạn\\[-2pt]{\tiny\normalfont Đa tạp, area law, 6 vấn đề}};
+  \node[sec, fill=qgreen!15, draw=qgreen, text=qgreen] (var) at (4.5,-2) {Biến thể\\[-2pt]{\tiny\normalfont MERA, PEPS, NQS, isoTNS}};
+  \node[sec, fill=qamber!15, draw=qamber, text=qamber] (future) at (9,-2) {Tổng hợp\\[-2pt]{\tiny\normalfont Kết quả mới, vấn đề mở}};
+
+  \draw[arr] (found) -- (algo);
+  \draw[arr] (algo) -- (geom);
+  \draw[arr] (geom) -- (var);
+  \draw[arr] (var) -- (future);
+\end{tikzpicture}
+\end{center}
+
+\vspace{10pt}
+{\small Ba góc nhìn xuyên suốt:}
+
+\vspace{4pt}
+{\small
+\begin{tabular}{@{}l@{\quad}l@{}}
+  \textcolor{qcyan}{$\blacktriangleright$} \textbf{Toán học} & Đại số tuyến tính, SVD, đa tạp, xấp xỉ hạng thấp \\
+  \textcolor{qgreen}{$\blacktriangleright$} \textbf{Khoa học máy tính} & Thuật toán, độ phức tạp, nén dữ liệu \\
+  \textcolor{qpurple}{$\blacktriangleright$} \textbf{Vật lý lượng tử} & Entanglement, trạng thái cơ bản, định luật diện tích \\
+\end{tabular}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% NỀN TẢNG: Không gian Hilbert & ký hiệu Dirac
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Không gian Hilbert và ký hiệu Dirac}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qcyan}{\textbf{Ký hiệu Dirac}}\\[3pt]
+{\small Trạng thái lượng tử được viết dưới dạng \textbf{ket}:}
+\eqn{\ket{\psi} \in \mathcal{H}}
+{\small $\mathcal{H}$: không gian Hilbert — không gian vector với tích vô hướng $\braket{\phi|\psi}$.}
+
+\vspace{6pt}
+\textcolor{qcyan}{\textbf{Qubit — đơn vị nhỏ nhất}}\\[3pt]
+{\small Một qubit sống trong $\mathbb{C}^2$:}
+\eqn{\ket{\psi} = \alpha\ket{0} + \beta\ket{1}, \quad |\alpha|^2 + |\beta|^2 = 1}
+{\small $\alpha, \beta \in \mathbb{C}$: biên độ xác suất.\\
+Đo được $\ket{0}$ với xác suất $|\alpha|^2$, $\ket{1}$ với $|\beta|^2$.}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\vspace{2pt}
+\textcolor{qpurple}{\textbf{Nhiều qubit — tích tensor}}\\[3pt]
+{\small $N$ qubit sống trong tích tensor:}
+\eqn{\mathcal{H} = \underbrace{\mathbb{C}^2 \otimes \mathbb{C}^2 \otimes \cdots \otimes \mathbb{C}^2}_{N} = \mathbb{C}^{2^N}}
+
+{\small Trạng thái tổng quát:}
+\eqn{\ket{\psi} = \sum_{s_1,\ldots,s_N \in \{0,1\}} c_{s_1\cdots s_N}\,\ket{s_1 \cdots s_N}}
+{\small Cần $2^N$ số phức $c_{s_1\cdots s_N}$ để mô tả đầy đủ.}
+
+\vspace{6pt}
+\textcolor{qamber}{\textbf{Ví dụ:}}\\[2pt]
+{\small $N=40$ qubit $\to$ $2^{40} \approx 10^{12}$ số phức\\
+$N=300$ qubit $\to$ $2^{300} >$ số nguyên tử trong vũ trụ}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% WHAT IS MPS — 1/3: Vấn đề bùng nổ tổ hợp
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Bùng nổ không gian trạng thái}
+
+Mô tả đầy đủ trạng thái lượng tử $N$ hạt cần $d^N$ số phức.
+
+\vspace{6pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.85, transform shape]
+  % Axes
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (10,0) node[right, font=\small] {$N$};
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (0,5) node[above, font=\small] {Số tham số};
+
+  % Exponential curve
+  \draw[qpink, very thick] plot[domain=0:9, samples=50] (\x, {0.02*exp(0.55*\x)});
+  \node[qpink, font=\small\bfseries, right] at (7.5,4.5) {$d^N$};
+
+  % Linear
+  \draw[qcyan, very thick] plot[domain=0:9, samples=50] (\x, {0.3*\x + 0.1});
+  \node[qcyan, font=\small\bfseries, right] at (9,2.8) {$ND^2 d$};
+
+  % Memory line
+  \draw[qamber, dashed, thick] (0,3.5) -- (10,3.5);
+  \node[qamber, font=\tiny, right] at (10,3.5) {bộ nhớ siêu máy tính};
+
+  % Example points
+  \node[font=\tiny, text=dimtext, below] at (2,0) {$10$};
+  \node[font=\tiny, text=dimtext, below] at (5,0) {$40$};
+  \node[font=\tiny, text=dimtext, below] at (8,0) {$100$};
+\end{tikzpicture}
+\end{center}
+
+\vspace{4pt}
+{\small
+\begin{tabular}{@{}lll@{}}
+  $N=10$ qubit & $\to$ $2^{10} = 1\,024$ số & dễ dàng \\
+  $N=40$ qubit & $\to$ $2^{40} \approx 10^{12}$ số & \warn{vượt RAM thông thường} \\
+  $N=100$ qubit & $\to$ $2^{100} \approx 10^{30}$ số & \warn{không máy nào chứa nổi} \\
+\end{tabular}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% Máy tính cổ điển mô phỏng hệ lượng tử
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Các phương pháp mô phỏng cổ điển}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qcyan}{\textbf{Nhà vật lý muốn tính gì?}}\\[3pt]
+{\small
+\begin{itemize}
+  \item \textbf{Trạng thái cơ bản}: năng lượng thấp nhất $E_0$, tính chất vật liệu
+  \item \textbf{Diễn tiến thời gian}: hệ thay đổi ra sao sau kích thích
+  \item \textbf{Hàm tương quan}: $\langle O_i O_j \rangle$ — cấu trúc trật tự
+  \item \textbf{Chuyển pha}: khi nào vật liệu đổi trạng thái
+\end{itemize}}
+
+\vspace{6pt}
+\textcolor{qpurple}{\textbf{Các phương pháp cổ điển}}
+
+\vspace{4pt}
+{\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}p{2.1cm}@{\;}p{4.2cm}@{}}
+\textbf{Chéo hóa chính xác (ED)} & Lưu toàn bộ $d^N$ hệ số, chéo hóa $H$. Chính xác nhưng \warn{giới hạn $N \lesssim 20$}. \\
+\textbf{Quantum Monte Carlo} & Lấy mẫu ngẫu nhiên thay vì lưu hết. Hiệu quả cho boson, nhưng \warn{vấn đề dấu} với fermion. \\
+\textbf{Mean-field (Hartree-Fock)} & Xấp xỉ mỗi hạt độc lập. Nhanh nhưng \warn{bỏ qua tương quan}. \\
+\end{tabular}}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.78, transform shape]
+  % Axes
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (6,0) node[right, font=\small] {$N$};
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (0,4.5) node[above, font=\small] {Độ chính xác};
+
+  % ED
+  \fill[qpurple!20] (0,3.5) rectangle (1.5,4.2);
+  \node[font=\tiny\bfseries, text=qpurple] at (0.75,3.85) {ED};
+  \draw[qpurple, thick, dashed] (1.5,3.85) -- (1.8,3.85);
+  \node[font=\tiny, text=qpink] at (2.5,3.85) {\warn{$N\!\leq\!20$}};
+
+  % QMC
+  \draw[qgreen, very thick] plot[domain=0:5.5, samples=30] (\x, {3.2 - 0.1*\x});
+  \node[font=\tiny\bfseries, text=qgreen, right] at (4.8,2.5) {QMC};
+  \node[font=\tiny, text=qpink] at (3.5,1.8) {\warn{dấu!}};
+
+  % Mean-field
+  \draw[dimtext, thick, dashed] plot[domain=0:5.5, samples=30] (\x, {1.5});
+  \node[font=\tiny\bfseries, text=dimtext, right] at (4.8,1.1) {Mean-field};
+
+  % MPS
+  \draw[qcyan, very thick] plot[domain=0:5.5, samples=30] (\x, {3.8 - 0.05*\x});
+  \node[font=\tiny\bfseries, text=qcyan, right] at (4.8,3.3) {MPS};
+
+\end{tikzpicture}
+\end{center}
+
+\vspace{6pt}
+\textcolor{qcyan}{\textbf{Ưu thế của MPS}}\\[2pt]
+{\small
+\begin{itemize}
+  \item Không lưu $d^N$ số — chỉ $O(ND^2d)$
+  \item Khai thác \textbf{cấu trúc entanglement}: đa số trạng thái vật lý có entanglement thấp
+  \item Không bị vấn đề dấu (khác QMC)
+  \item Có thể mở rộng lên $N \sim 10^3 \text{--} 10^4$ site
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% WHAT IS MPS — 2/3: MPS — Biểu diễn hiệu quả
+% ══════════════════════════════════════
+\begin{frame}{Biểu diễn MPS}
+
+Ý tưởng: thay vì lưu $d^N$ số, ta phân tích thành \highlight{tích chuỗi ma trận}:
 
 \eqn{
   \ket{\psi} = \sum_{s_1,\ldots,s_N} A^{s_1}_1 A^{s_2}_2 \cdots A^{s_N}_N \;\ket{s_1 s_2 \cdots s_N}
 }
 
-\vspace{2pt}
+\vspace{4pt}
 \begin{center}
 \begin{tikzpicture}[scale=0.9, transform shape,
   tensor/.style={draw=qcyan, fill=qcyan!15, rounded corners=3pt, minimum width=0.9cm, minimum height=0.9cm, font=\small\bfseries, text=qcyan},
@@ -119,7 +318,9 @@ Trạng thái lượng tử $N$ hạt đòi hỏi $d^N$ số phức để mô t�
 ]
   \foreach \i/\s in {1/$A_1$, 2/$A_2$, 3/$A_3$, 4/$\cdots$, 5/$A_N$} {
     \node[tensor] (A\i) at ({(\i-1)*2.2}, 0) {\s};
-    \draw[phys] (A\i.south) -- ++(0,-0.6) node[below, font=\footnotesize, text=qpurple] {$s_{\i}$};
+  }
+  \foreach \i/\p in {1/$s_1$, 2/$s_2$, 3/$s_3$, 5/$s_N$} {
+    \draw[phys] (A\i.south) -- ++(0,-0.6) node[below, font=\footnotesize, text=qpurple] {\p};
   }
   \draw[leg] (A1.east) -- (A2.west) node[midway, above, font=\tiny, text=dimtext] {$D$};
   \draw[leg] (A2.east) -- (A3.west) node[midway, above, font=\tiny, text=dimtext] {$D$};
@@ -128,634 +329,2247 @@ Trạng thái lượng tử $N$ hạt đòi hỏi $d^N$ số phức để mô t�
 \end{tikzpicture}
 \end{center}
 
-\vspace{2pt}
+\vspace{6pt}
+{\small Chỉ cần $O(N D^2 d)$ tham số — \textbf{tuyến tính} theo $N$, thay vì hàm mũ.}
+
+\vspace{4pt}
+{\small\textcolor{dimtext}{\textbf{Toán:} phân tích tensor thành tích ma trận. \textbf{KHMT:} nén từ hàm mũ xuống đa thức. \textbf{Vật lý:} biểu diễn trạng thái lượng tử.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% WHAT IS MPS — 3/3: Giải mã ký hiệu
+% ══════════════════════════════════════
+\begin{frame}{Cấu trúc tensor MPS}
+
+\vspace{4pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.9, transform shape,
+  tensor/.style={draw=qcyan, fill=qcyan!15, rounded corners=3pt, minimum width=1.1cm, minimum height=1.1cm, font=\small\bfseries, text=qcyan},
+  leg/.style={thick, color=dimtext},
+  phys/.style={thick, color=qpurple}
+]
+  \node[tensor] (A) at (0,0) {$A^{s_i}_i$};
+  \draw[phys] (A.south) -- ++(0,-0.8) node[below, font=\small, text=qpurple] {$s_i$\;\footnotesize (vật lý)};
+  \draw[leg] (A.west) -- ++(-1.2,0) node[left, font=\small, text=dimtext] {$D_\text{trái}$\;\footnotesize (ảo)};
+  \draw[leg] (A.east) -- ++(1.2,0) node[right, font=\small, text=dimtext] {$D_\text{phải}$\;\footnotesize (ảo)};
+\end{tikzpicture}
+\end{center}
+
+\vspace{6pt}
+{\small
+\begin{tabular}{@{}l@{\;:\;}l@{\quad}l@{}}
+\textbf{Chỉ số vật lý} $s_i$ & $\{0,\ldots,d{-}1\}$ — kết quả đo tại site $i$ & \textcolor{qpurple}{\footnotesize Vật lý} \\
+\textbf{Chỉ số ảo} & nối tensor $i$ với $i{\pm}1$, kích thước $D$ & \textcolor{dimtext}{\footnotesize Toán} \\
+\textbf{Bond dimension} $D$ & tham số nén — $D$ lớn $\to$ chính xác hơn & \textcolor{qcyan}{\footnotesize KHMT} \\
+\textbf{Biên mở} & $A_1 \in \mathbb{C}^{1\times D}$,\; $A_N \in \mathbb{C}^{D\times 1}$ & \\
+\end{tabular}}
+
+\vspace{8pt}
+{\small
+\begin{itemize}
+  \item $D=1$: trạng thái tích (product state) — không có vướng víu
+  \item $D$ tăng $\to$ entanglement tăng, nhưng luôn bị chặn: $S \leq \log D$
+\end{itemize}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% VAI TRÒ CỦA TÍNH KHÔNG GIAO HOÁN
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Tính không giao hoán và entanglement}
+
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
-  \begin{itemize}
-    \item $A^{s_i}_i \in \mathbb{C}^{D\times D}$: ma trận với \highlight{bond dimension} $D$
-    \item Tham số: $O(N D^2 d)$ thay vì $O(d^N)$
-  \end{itemize}
+
+\textcolor{qcyan}{\textbf{Nhắc lại: MPS là tích ma trận}}\\[3pt]
+{\small Hệ số của mỗi trạng thái cơ sở:}
+\eqn{c_{s_1\cdots s_N} = A^{s_1}\!A^{s_2}\!\cdots A^{s_N}}
+{\small Mỗi $A^{s_i}$ là ma trận $D\times D$. Nói chung:}
+\eqn{A^{s_i}\!A^{s_j} \neq A^{s_j}\!A^{s_i}}
+
+\vspace{6pt}
+\textcolor{qgreen}{\textbf{Không giao hoán = có tương quan}}\\[3pt]
+{\small Nếu tất cả $A^{s_i}$ giao hoán $\Rightarrow$ thứ tự không quan trọng $\Rightarrow$ các site \textbf{độc lập} $\Rightarrow$ product state (không entanglement).
+
+\vspace{4pt}
+Chính vì $[A^{s_i},A^{s_j}]\neq 0$ mà MPS mã hóa được \textbf{tương quan lượng tử} giữa các site.}
+
 \end{column}
 \begin{column}{0.48\textwidth}
-  \begin{itemize}
-    \item Chỉ số vật lý $s_i \in \{0,\ldots,d{-}1\}$, chỉ số ảo nối các tensor
-    \item Biên mở: $A_1 \in \mathbb{C}^{1\times D}$, $A_N \in \mathbb{C}^{D\times 1}$
-  \end{itemize}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.8, transform shape,
+  mat/.style={rounded corners=3pt, minimum width=0.9cm, minimum height=0.7cm, font=\small\bfseries, inner sep=0pt}
+]
+  % Commuting → product state
+  \node[font=\small\bfseries, text=dimtext] at (0,3.0) {Giao hoán:};
+  \node[mat, draw=dimtext, fill=dimtext!8, text=dimtext] (a1) at (0,2.2) {$A$};
+  \node[mat, draw=dimtext, fill=dimtext!8, text=dimtext] (b1) at (1.2,2.2) {$B$};
+  \node[font=\small, text=dimtext] at (2.2,2.2) {$=$};
+  \node[mat, draw=dimtext, fill=dimtext!8, text=dimtext] (b2) at (3.2,2.2) {$B$};
+  \node[mat, draw=dimtext, fill=dimtext!8, text=dimtext] (a2) at (4.4,2.2) {$A$};
+  \node[font=\tiny, text=dimtext] at (2.2,1.5) {$\Rightarrow$ không tương quan};
+
+  % Non-commuting → entanglement
+  \node[font=\small\bfseries, text=qcyan] at (0,0.8) {Không giao hoán:};
+  \node[mat, draw=qcyan, fill=qcyan!12, text=qcyan] (c1) at (0,0) {$A$};
+  \node[mat, draw=qpurple, fill=qpurple!12, text=qpurple] (d1) at (1.2,0) {$B$};
+  \node[font=\small, text=qpink] at (2.2,0) {$\neq$};
+  \node[mat, draw=qpurple, fill=qpurple!12, text=qpurple] (d2) at (3.2,0) {$B$};
+  \node[mat, draw=qcyan, fill=qcyan!12, text=qcyan] (c2) at (4.4,0) {$A$};
+  \node[font=\tiny, text=qcyan] at (2.2,-0.7) {$\Rightarrow$ entanglement};
+\end{tikzpicture}
+\end{center}
+
+\vspace{6pt}
+\textcolor{qamber}{\textbf{Hệ quả sâu hơn}}\\[3pt]
+{\small
+\begin{itemize}
+  \item $D$ lớn hơn $\to$ ma trận lớn hơn $\to$ không gian cho tính không giao hoán $\to$ entanglement mạnh hơn
+  \item Đây cũng là lý do MPS gắn với \textbf{thứ tự 1D}: chuỗi tích có thứ tự tự nhiên trái$\to$phải
+\end{itemize}}
+
 \end{column}
 \end{columns}
 
-\vspace{4pt}
-{\small\textcolor{dimtext}{$D=1$: product state. $D$ tăng $\to$ entanglement tăng. Entanglement entropy bị chặn: $S \leq \log D$.}}
+\end{frame}
+
+% ══════════════════════════════════════
+% NỀN TẢNG: Entanglement & Schmidt decomposition
+% ══════════════════════════════════════
+\begin{frame}[shrink=5]{Phân tích Schmidt và entanglement entropy}
+
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+
+\textcolor{qcyan}{\textbf{Chia hệ làm đôi}}\\[3pt]
+{\small Cắt chuỗi $N$ site thành hai phần $A$ và $B$. Phân tích Schmidt:}
+\eqn{\ket{\psi} = \sum_{k=1}^{r} \lambda_k \,\ket{a_k}_A \otimes \ket{b_k}_B}
+{\small
+\begin{itemize}
+  \item $\lambda_k \geq 0$: hệ số Schmidt, $\sum_k \lambda_k^2 = 1$
+  \item $\ket{a_k}$, $\ket{b_k}$: cơ sở trực chuẩn của mỗi phần
+  \item $r$: hạng Schmidt — số kênh liên kết giữa $A$ và $B$
+\end{itemize}}
+
+\vspace{6pt}
+\textcolor{qpurple}{\textbf{Entanglement entropy}}
+\eqn{S = -\sum_k \lambda_k^2 \log \lambda_k^2}
+{\small $S = 0$: product state (không rối).\\
+$S$ lớn: hai phần liên kết chặt chẽ.}
+
+\end{column}
+\begin{column}{0.46\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.8, transform shape,
+  site/.style={circle, draw=qcyan, fill=qcyan!15, minimum size=0.5cm, inner sep=0pt, font=\tiny\bfseries}
+]
+  \foreach \i in {1,...,6} {
+    \node[site] (s\i) at (\i*0.9, 0) {\i};
+  }
+  \draw[thick, dimtext] (s1) -- (s2) -- (s3) -- (s4) -- (s5) -- (s6);
+
+  % Cut
+  \draw[qpink, very thick, dashed] (2.85, -0.8) -- (2.85, 0.8);
+  \node[qpink, font=\small\bfseries, above] at (2.85, 0.8) {cắt};
+
+  % Lambda labels
+  \draw[qamber, very thick, dashed] (2.85, -0.15) -- (2.85, -0.65);
+  \node[qamber, font=\small] at (2.85, -1.0) {$\lambda_1, \lambda_2, \ldots$};
+
+  % A and B
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, thick, qcyan]
+    (0.7,-0.5) -- (2.6,-0.5) node[midway, below=5pt, font=\small, text=qcyan] {$A$};
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, thick, qpurple]
+    (3.1,-0.5) -- (5.6,-0.5) node[midway, below=5pt, font=\small, text=qpurple] {$B$};
+\end{tikzpicture}
+\end{center}
+
+\vspace{8pt}
+\textcolor{qamber}{\textbf{Cầu nối quan trọng}}\\[3pt]
+{\small Nếu reshape $\ket{\psi}$ thành ma trận ($A$ vs $B$) rồi tính SVD:
+\begin{itemize}
+  \item $\lambda_k$ chính là \textbf{singular values}
+  \item Schmidt decomposition $=$ SVD trên state vector
+\end{itemize}
+Đây là lý do SVD là công cụ tự nhiên để xây dựng MPS.}
+
+\end{column}
+\end{columns}
 
 \end{frame}
 
 % ══════════════════════════════════════
-% MPS PSEUDOCODE
+% BRIDGE: Làm sao nén tối ưu?
 % ══════════════════════════════════════
-\begin{frame}[fragile, shrink=5]{Xây dựng MPS từ state vector — SVD liên tiếp}
+\begin{frame}{Xấp xỉ hạng thấp tối ưu}
 
-Ý tưởng: reshape + SVD tại từng vị trí, cắt bớt bond dimension xuống $D_{\max}$.
+\vspace{20pt}
+\begin{center}
+{\large Mục tiêu: nén $d^N$ số phức xuống $O(ND^2 d)$\\[10pt]
+với sai số nhỏ nhất có thể (\highlight{tối ưu}).}
+\end{center}
+
+\vspace{20pt}
+\begin{center}
+{\Large\textcolor{qpurple}{\textbf{Singular Value Decomposition (SVD)}}}
+\end{center}
+
+\vspace{8pt}
+{\small\textcolor{dimtext}{Phân tích giá trị suy biến (SVD) cung cấp công cụ toán học cho xấp xỉ hạng thấp tối ưu.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% SVD 1/3 — Định nghĩa
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=5]{Phân tích giá trị suy biến (SVD)}
+
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+
+Mọi ma trận $M \in \mathbb{C}^{m\times n}$ đều phân tích được thành:
+\eqn{M = U\,\Sigma\,V^\dagger}
+
+\vspace{2pt}
+{\small
+\begin{tabular}{@{}l@{\;:\;}l@{}}
+$U \in \mathbb{C}^{m\times r}$     & cột trực chuẩn (left singular vectors) \\
+$\Sigma \in \mathbb{R}^{r\times r}$ & đường chéo, $\sigma_1\!\geq\!\sigma_2\!\geq\!\cdots\!\geq\!0$ \\
+$V^\dagger \in \mathbb{C}^{r\times n}$ & hàng trực chuẩn (right singular vectors) \\
+$r = \mathrm{rank}(M)$ & số singular values khác không \\
+\end{tabular}}
+
+\end{column}
+\begin{column}{0.45\textwidth}
+
+\vspace{4pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.72, transform shape,
+  mat/.style={draw=#1, fill=#1!12, minimum width=0.7cm, minimum height=1.4cm, font=\small\bfseries, text=#1, rounded corners=2pt},
+  eq/.style={font=\large, text=dimtext}
+]
+  \node[mat=dimtext, minimum width=1.6cm, minimum height=1.4cm] (M) at (0,0) {$M$};
+  \node[eq] at (1.25,0) {$=$};
+  \node[mat=qcyan, minimum width=0.9cm] (U) at (2.3,0) {$U$};
+  \node[mat=qpurple, minimum width=0.7cm, minimum height=0.7cm] (S) at (3.35,0) {$\Sigma$};
+  \node[mat=qgreen, minimum width=1.6cm, minimum height=0.7cm] (V) at (4.65,0) {$V^\dagger$};
+  \node[font=\tiny, text=dimtext] at (0, -1.05) {$m\times n$};
+  \node[font=\tiny, text=dimtext] at (2.3, -1.05) {$m\times r$};
+  \node[font=\tiny, text=dimtext] at (3.35, -0.7) {$r\times r$};
+  \node[font=\tiny, text=dimtext] at (4.65, -0.7) {$r\times n$};
+\end{tikzpicture}
+\end{center}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% SVD 1b/3 — Ý nghĩa singular values
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Ý nghĩa hình học của singular values}
+
+\textcolor{qpurple}{\textbf{Ý nghĩa hình học}}\\[3pt]
+{\small Ma trận $M$ biến đổi một vector đầu vào bằng cách \textbf{xoay} ($V^\dagger$) rồi \textbf{co giãn} ($\Sigma$) rồi \textbf{xoay lần nữa} ($U$).
+Singular value $\sigma_k$ chính là \textit{hệ số co giãn} theo phương thứ $k$: $\sigma_1$ là phương bị kéo giãn mạnh nhất, $\sigma_r$ yếu nhất.}
+
+\vspace{8pt}
+{\small
+\begin{itemize}
+  \item Liên hệ với trị riêng: $\sigma_k = \sqrt{\lambda_k(M^\dagger M)}$ — căn bậc hai của trị riêng ma trận $M^\dagger M$
+  \item Khác trị riêng: singular values \textbf{luôn thực, không âm}, trong khi trị riêng có thể âm hoặc phức
+  \item Tồn tại cho \textbf{mọi} ma trận (không cần vuông) — đây là ưu thế then chốt so với phân tích trị riêng
+\end{itemize}}
+
+\vspace{8pt}
+\textcolor{qcyan}{\textbf{Liên hệ với MPS}}\\[3pt]
+{\small Khi reshape state vector thành ma trận rồi SVD:
+\begin{itemize}
+  \item $\sigma_k$ = hệ số Schmidt = đo lượng entanglement qua mỗi ``kênh''
+  \item Bỏ $\sigma_k$ nhỏ $\equiv$ bỏ kênh entanglement yếu nhất
+  \item Bond dimension $D$ = số kênh giữ lại
+\end{itemize}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% SVD 2/3 — Truncation & Eckart–Young
+% ══════════════════════════════════════
+\begin{frame}[shrink=5]{Định lý Eckart--Young}
+
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+
+\textcolor{qpurple}{\textbf{Định lý Eckart--Young}}\\[3pt]
+{\small Giữ $D$ singular values lớn nhất cho xấp xỉ hạng-$D$ \textbf{tốt nhất có thể} — theo cả Frobenius \textit{và} operator norm:}
+\eqn{M_D = U_{:D}\,\Sigma_{:D}\,V^\dagger_{:D}}
+
+{\small Sai số truncation đo được chính xác:}
+\eqn{\|M - M_D\|_F = \sqrt{\textstyle\sum_{k>D}\sigma_k^2}}
+
+\vspace{4pt}
+{\small Nghĩa là: bỏ các $\sigma_k$ nhỏ = bỏ các phương co giãn yếu nhất.
+\textbf{Không có cách nào khác} cho sai số nhỏ hơn ở cùng hạng $D$.}
+
+\end{column}
+\begin{column}{0.42\textwidth}
+
+\vspace{2pt}
+\textcolor{qamber}{\textbf{So sánh với các phân tích khác}}
+
+\vspace{6pt}
+{\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}l@{\quad}l@{}}
+\toprule
+\textbf{Phương pháp} & \textbf{Hạn chế} \\
+\midrule
+Trị riêng & chỉ ma trận vuông \\
+QR & tách được, nhưng không \\
+   & biết cắt tối ưu ở đâu \\
+LU & không ổn định số học, \\
+   & không trực chuẩn \\
+\midrule
+\good{SVD} & \good{mọi ma trận, cắt tối ưu,} \\
+           & \good{trực chuẩn, ổn định} \\
+\bottomrule
+\end{tabular}}
+
+\vspace{6pt}
+{\small\textcolor{dimtext}{$\Rightarrow$ SVD là công cụ vừa \textbf{tách} ma trận vừa cho biết chính xác \textbf{cắt ở đâu} và \textbf{mất bao nhiêu}.}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% SVD 3/3 — Từ SVD đến MPS
+% ══════════════════════════════════════
+\begin{frame}[shrink=5]{Xây dựng MPS bằng SVD}
+
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+
+\textcolor{qcyan}{\textbf{Bước 1: Reshape state vector thành ma trận}}\\[2pt]
+{\small Trạng thái $N$ site sống trong không gian $d^N$ chiều. Reshape thành ma trận $(d \times d^{N-1})$ — chia hệ thành \textbf{1 site} | \textbf{phần còn lại}.}
+
+\vspace{6pt}
+\textcolor{qcyan}{\textbf{Bước 2: SVD + truncation}}\\[2pt]
+{\small SVD trên ma trận đó:
+\begin{itemize}
+  \item $U$ $\to$ tensor của site đầu tiên
+  \item $\Sigma V^\dagger$ $\to$ phần còn lại, tiếp tục reshape rồi SVD cho site kế tiếp
+\end{itemize}
+Lặp $N{-}1$ lần $\Rightarrow$ tách xong toàn bộ.}
+
+\vspace{6pt}
+\textcolor{qcyan}{\textbf{Bước 3: Singular values = entanglement}}\\[2pt]
+{\small $\sigma_k$ tại bond $(i,\,i{+}1)$ chính là \textbf{hệ số Schmidt} của phân hoạch trái–phải:}
+\eqn{S = -\sum_k \sigma_k^2 \log \sigma_k^2}
+
+\end{column}
+\begin{column}{0.42\textwidth}
+
+\vspace{2pt}
+\textcolor{qamber}{\textbf{Tại sao SVD là lựa chọn tự nhiên?}}
+
+\vspace{6pt}
+{\small
+\begin{itemize}
+  \item \textbf{Truncation tối ưu}: bỏ $\sigma_k$ nhỏ = bỏ kênh entanglement yếu nhất, sai số nhỏ nhất (Eckart--Young)
+
+  \item \textbf{Left-canonical miễn phí}: cột $U$ trực chuẩn nên $\sum_s A^{s\dagger}A^s = \mathbb{I}$ — không cần xử lý thêm
+
+  \item \textbf{Kiểm soát sai số}: phổ $\{\sigma_k\}$ cho biết chính xác bao nhiêu entanglement bị bỏ khi cắt tại $D$
+
+  \item \textbf{Đọc entanglement trực tiếp}: entropy tính ngay từ singular values — không cần bước trung gian
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% MPS PSEUDOCODE — Code
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=3]{Thuật toán SVD liên tiếp}
+
+{\small Ý tưởng: reshape + SVD tại từng vị trí, cắt bớt bond dimension xuống $D_{\max}$.}
 
 \vspace{4pt}
 \begin{lstlisting}
-import numpy as np
-
-def state_to_mps(psi, N, d, D_max=32):
-    """
-    psi      : state vector, shape (d**N,)
-    N, d     : so site, kich thuoc khong gian cuc bo
-    D_max    : bond dimension toi da (truncation)
-    Tra ve   : list N tensor A[i], shape (D_left, d, D_right)
-    """
+def state_to_mps(psi, N, d, D_max):
     tensors = []
-    remainder = psi.reshape(1, d**N)  # (D_left=1, d^N)
+    remainder = psi.reshape(1, d**N)
     D_left = 1
 
     for i in range(N - 1):
-        # Gop chi so trai + vat ly, de SVD
-        remainder = remainder.reshape(D_left * d, d**(N - 1 - i))
+        remainder = remainder.reshape(D_left * d, d**(N-1-i))
+        U, S, Vh  = svd(remainder)
+        D         = min(len(S), D_max)
+        U, S, Vh  = U[:,:D], S[:D], Vh[:D,:]
 
-        U, S, Vh = np.linalg.svd(remainder, full_matrices=False)
+        tensors.append(U.reshape(D_left, d, D))
+        remainder = diag(S) @ Vh
+        D_left    = D
 
-        D = min(len(S), D_max)         # cat bot singular values nho
-        U, S, Vh = U[:, :D], S[:D], Vh[:D, :]
-
-        A = U.reshape(D_left, d, D)    # tensor site i: (D_left, d, D)
-        tensors.append(A)
-
-        remainder = np.diag(S) @ Vh    # phan con lai, chuyen sang site ke
-        D_left = D
-
-    # Site cuoi: khong can SVD nua
     tensors.append(remainder.reshape(D_left, d, 1))
-    return tensors  # [A_1, A_2, ..., A_N]
+    return tensors
 \end{lstlisting}
 
-\vspace{2pt}
+\vspace{4pt}
 {\small\textcolor{dimtext}{%
-\textbf{Độ phức tạp:} $O(N d^N D)$ lần đầu — nhưng mục đích là để $D \ll d^{N/2}$, tránh bùng nổ.
-\quad\textbf{Left-canonical:} $\sum_s A^{s\dagger}A^s = \mathbb{I}$ tự động từ cột của $U$.}}
+\textbf{Độ phức tạp:} $O(N d^N D)$ — mục đích là $D \ll d^{N/2}$.
+\quad\textbf{Left-canonical:} $\sum_s A^{s\dagger}A^s = \mathbb{I}$ tự động từ cột $U$.}}
 
 \end{frame}
 
 % ══════════════════════════════════════
-% MPS NATURE
+% MPS PSEUDOCODE — Giải thích
 % ══════════════════════════════════════
-\begin{frame}{Bản chất của MPS}
-\begin{columns}[T]
+\begin{frame}[shrink=3]{SVD liên tiếp --- giải thích}
 
-%── LEFT: hình học ───────────────────────────────────────────
-\begin{column}{0.4\textwidth}
+\vspace{6pt}
+{\small
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}l@{\;:\;}p{10cm}@{}}
+\texttt{psi}       & state vector $(d^N)$ — đầu vào \\
+\texttt{remainder}  & phần chưa phân tích, co dần sau mỗi bước \\
+\texttt{D\_left}    & bond dim trái site hiện tại (khởi đầu $=1$) \\
+\texttt{D\_max}     & ngưỡng cắt bond dim — cân bằng chính xác vs chi phí \\
+\texttt{U, S, Vh}  & SVD: $U$ trực chuẩn, $S$ singular values, $V^\dagger$ \\
+\texttt{tensors[i]} & tensor 3 chỉ số $(D_\text{left},\, d,\, D_\text{right})$ \\
+\end{tabular}}
+
+\vspace{8pt}
+{\small
+\textcolor{qcyan}{\textbf{Quy trình tại mỗi site $i$:}}
+\begin{enumerate}
+  \item \textbf{Reshape} remainder thành ma trận $(D_\text{left}\!\cdot\!d) \times d^{N-1-i}$
+  \item \textbf{SVD} $\to U\Sigma V^\dagger$, giữ $D = \min(\text{rank}, D_\text{max})$ singular values lớn nhất
+  \item $U$ reshape thành tensor 3-chỉ số $\to$ lưu vào \texttt{tensors}
+  \item $\Sigma V^\dagger$ trở thành \texttt{remainder} mới cho bước tiếp
+\end{enumerate}}
+
+\vspace{6pt}
+{\small\textcolor{dimtext}{Sau $N{-}1$ bước SVD, toàn bộ state vector được phân tích thành chuỗi tensor. Tensor cuối cùng là phần remainder còn lại.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% CANONICAL FORMS
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=5]{Dạng chính tắc (canonical forms)}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qcyan}{\textbf{Left-canonical}}\\[3pt]
+{\small Mỗi tensor thỏa $\sum_s A^{s\dagger}A^s = \mathbb{I}$. Thu được từ SVD trái$\to$phải (thuật toán \texttt{state\_to\_mps}).}
+
+\vspace{6pt}
+\textcolor{qpurple}{\textbf{Right-canonical}}\\[3pt]
+{\small Mỗi tensor thỏa $\sum_s A^s A^{s\dagger} = \mathbb{I}$. SVD phải$\to$trái.}
+
+\vspace{6pt}
+\textcolor{qgreen}{\textbf{Mixed-canonical}}\\[3pt]
+{\small Chọn 1 site $k$ làm ``tâm trực giao'':
+\begin{itemize}
+  \item Site $i < k$: left-canonical
+  \item Site $i > k$: right-canonical
+  \item Site $k$: chứa toàn bộ thông tin chuẩn hóa
+\end{itemize}}
+
+\vspace{4pt}
+{\small Hệ quả: $\braket{\psi|\psi} = \sum_s \text{Tr}(A_k^{s\dagger} A_k^s)$ — chỉ cần tính tại 1 site!}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.75, transform shape,
+  tensor/.style={draw=#1, fill=#1!15, rounded corners=3pt, minimum width=0.7cm, minimum height=0.7cm, font=\scriptsize\bfseries, text=#1},
+  leg/.style={thick, color=dimtext}
+]
+  % Mixed canonical
+  \node[tensor=qcyan] (L1) at (0,0) {$L$};
+  \node[tensor=qcyan] (L2) at (1.2,0) {$L$};
+  \node[tensor=qamber] (C) at (2.4,0) {$C$};
+  \node[tensor=qpurple] (R1) at (3.6,0) {$R$};
+  \node[tensor=qpurple] (R2) at (4.8,0) {$R$};
+  \draw[leg] (L1.east) -- (L2.west);
+  \draw[leg] (L2.east) -- (C.west);
+  \draw[leg] (C.east) -- (R1.west);
+  \draw[leg] (R1.east) -- (R2.west);
+  \foreach \n in {L1,L2,C,R1,R2} {
+    \draw[thick, qpink] (\n.south) -- ++(0,-0.4);
+  }
+  \node[font=\tiny, text=qamber, above] at (2.4,0.5) {tâm trực giao};
+\end{tikzpicture}
+\end{center}
+
+\vspace{4pt}
+\textcolor{qamber}{\textbf{Tại sao quan trọng?}}\\[2pt]
+{\small DMRG cần mixed-canonical: environment tự trở thành $\mathbb{I}$, chỉ cần giải trị riêng tại tâm. Schmidt values đọc trực tiếp từ singular values.}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% CANONICAL FORMS — Code
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=3]{Dạng chính tắc --- cài đặt}
+
+\begin{lstlisting}
+def left_canonicalize(tensors):
+    for i in range(len(tensors) - 1):
+        D_l, d, D_r = tensors[i].shape
+        M    = tensors[i].reshape(D_l * d, D_r)
+        U, S, Vh = svd(M, full_matrices=False)
+        tensors[i]   = U.reshape(D_l, d, -1)
+        # Absorb S*Vh into next tensor
+        SV = diag(S) @ Vh
+        tensors[i+1] = einsum('ij,jkl->ikl', SV, tensors[i+1])
+    return tensors
+
+def mixed_canonical(tensors, center):
+    left_canonicalize(tensors[:center+1])
+    right_canonicalize(tensors[center:])
+    return tensors
+\end{lstlisting}
+
+\vspace{4pt}
+{\small \texttt{left\_canonicalize}: quét trái$\to$phải, SVD + hấp thụ $\Sigma V^\dagger$ sang phải.
+\texttt{right\_canonicalize}: tương tự, phải$\to$trái. \texttt{mixed\_canonical}: kết hợp hai chiều.}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% MPO — Matrix Product Operator
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Toán tử tích ma trận (MPO)}
+
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+
+\textcolor{qcyan}{\textbf{Toán tử tích ma trận (MPO)}}\\[3pt]
+{\small Hamiltonian $H$ biểu diễn dạng chuỗi tensor, giống MPS nhưng có \textbf{2 chỉ số vật lý} (vào và ra):}
+{\small\[H = \sum_{\{s,s'\}} W^{s_1 s'_1}_1 \cdots W^{s_N s'_N}_N \;\ket{s_1\cdots}\!\bra{s'_1\cdots}\]}
+
+{\small Mỗi $W_i$ là tensor 4 chỉ số: $(D_W^L,\, d,\, d,\, D_W^R)$.}
+
+\vspace{6pt}
+\textcolor{qgreen}{\textbf{Ví dụ: Ising $H = -\sum_i Z_i Z_{i+1} - h\sum_i X_i$}}\\[2pt]
+{\small MPO bond dimension $D_W = 3$:}
+{\footnotesize\[W = \begin{pmatrix} \mathbb{I} & 0 & 0 \\ Z & 0 & 0 \\ -hX & -Z & \mathbb{I} \end{pmatrix}\]}
+
+\end{column}
+\begin{column}{0.46\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.8, transform shape,
+  mps/.style={draw=qcyan, fill=qcyan!15, rounded corners=3pt, minimum width=0.7cm, minimum height=0.7cm, font=\scriptsize\bfseries, text=qcyan},
+  mpo/.style={draw=qamber, fill=qamber!15, rounded corners=3pt, minimum width=0.7cm, minimum height=0.7cm, font=\scriptsize\bfseries, text=qamber},
+  leg/.style={thick, color=dimtext}
+]
+  % MPO
+  \foreach \i in {1,...,4} {
+    \node[mpo] (W\i) at ({(\i-1)*1.4}, 0) {$W_{\i}$};
+    \draw[thick, qpurple] (W\i.north) -- ++(0,0.5) node[above, font=\tiny, text=qpurple] {$s_{\i}$};
+    \draw[thick, qpink] (W\i.south) -- ++(0,-0.5) node[below, font=\tiny, text=qpink] {$s'_{\i}$};
+  }
+  \draw[leg] (W1.east) -- (W2.west);
+  \draw[leg] (W2.east) -- (W3.west);
+  \draw[leg] (W3.east) -- (W4.west);
+  \node[font=\tiny, text=dimtext] at (2.1, 0.15) {$D_W$};
+\end{tikzpicture}
+\end{center}
+
+\vspace{8pt}
+\textcolor{qamber}{\textbf{Ứng dụng}}\\[2pt]
+{\small
+\begin{itemize}
+  \item DMRG: xây dựng $H_\text{eff}$ từ MPO + environment
+  \item TEBD/TDVP: áp dụng $e^{-iH\delta t}$ lên MPS
+  \item Nhiệt độ hữu hạn: ma trận mật độ $\rho$ dạng MPO
+  \item Nén mô hình ML: $W$ trong neural network $\to$ MPO
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% EXPECTATION VALUE — Code
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=3]{Giá trị kỳ vọng $\braket{\psi|O_k|\psi}$}
+
+{\small Co rút MPS từ trái sang phải, chèn toán tử tại site $k$. Chi phí: $O(ND^3 d)$.}
+
+\vspace{4pt}
+\begin{lstlisting}
+def expect_single_site(tensors, O, k):
+    """<psi| O_k |psi> for single-site operator O at site k."""
+    N = len(tensors)
+    E = ones((1, 1))              # left environment
+
+    for i in range(N):
+        A = tensors[i]            # shape (D_l, d, D_r)
+        if i == k:
+            # E[a,b] A*[a,s',c] O[s',s] A[b,s,d] -> E[c,d]
+            OA = einsum('st,btd->bsd', O, A)
+            E  = einsum('ab,asc,bsd->cd', E, A.conj(), OA)
+        else:
+            # E[a,b] A*[a,s,c] A[b,s,d] -> E[c,d]
+            E = einsum('ab,asc,bsd->cd', E, A.conj(), A)
+
+    return E[0, 0].real
+\end{lstlisting}
+
+\vspace{4pt}
+{\small\textcolor{dimtext}{%
+\texttt{E}: transfer matrix tích lũy — ``environment trái''. Tại site $k$, toán tử $O$ được chèn giữa bra $\bra{\psi}$ và ket $\ket{\psi}$.
+Nếu MPS ở left-canonical, $E = \mathbb{I}$ cho mọi site trước $k$.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% TRUNCATION ERROR — Code
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=3]{Sai số truncation và phổ Schmidt}
+
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+
+{\small Cắt bond dimension từ $D_\text{full}$ xuống $D$: bỏ các singular values nhỏ. Sai số đo chính xác bằng Eckart--Young:}
+\eqn{\varepsilon = \sqrt{\textstyle\sum_{k>D}\sigma_k^2}}
+
+\vspace{4pt}
+\begin{lstlisting}
+def truncation_error(psi, N, d, D_values):
+    """Compute ||psi - psi_D|| for each D."""
+    errors = []
+    for D in D_values:
+        mps = state_to_mps(psi, N, d, D)
+        psi_D = mps_to_state(mps)
+        err = norm(psi - psi_D)
+        errors.append(err)
+    return errors
+\end{lstlisting}
+
+\end{column}
+\begin{column}{0.47\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.75, transform shape]
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (5.5,0) node[right, font=\small] {$D$};
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (0,3.5) node[above, font=\small] {$\varepsilon$};
+
+  % Decay curve
+  \draw[qpink, very thick] plot[domain=0.5:5, samples=40]
+    (\x, {3.0*exp(-0.8*\x)});
+
+  % Annotations
+  \draw[qcyan, dashed] (2,0) -- (2,{3.0*exp(-1.6)});
+  \fill[qcyan] (2,{3.0*exp(-1.6)}) circle (2.5pt);
+  \node[font=\tiny, text=qcyan, below] at (2,0) {$D^*$};
+
+  \node[font=\scriptsize, text=qpink, right] at (4.5,0.5) {$\sim e^{-\alpha D}$};
+
+  \node[font=\tiny, text=qgreen, align=left] at (3.8,2.8) {hệ gapped:\\giảm nhanh};
+\end{tikzpicture}
+\end{center}
+
+\vspace{4pt}
+{\small
+\begin{itemize}
+  \item \textbf{Hệ gapped}: $\sigma_k$ giảm theo hàm mũ $\to$ $D$ nhỏ đã chính xác
+  \item \textbf{Hệ tới hạn}: $\sigma_k$ giảm lũy thừa $\to$ cần $D$ lớn hơn
+  \item Phổ $\{\sigma_k\}$ là thước đo chất lượng xấp xỉ
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% BRIDGE: Từ thuật toán đến hình học
+% ══════════════════════════════════════
+\begin{frame}{Hình học của không gian MPS}
+
+\vspace{16pt}
+\begin{center}
+{\large Tập hợp tất cả MPS với bond dimension $D$\\[8pt]
+tạo thành một \textit{đa tạp} $\mathcal{M}_D$ trong không gian Hilbert.\\[2pt]
+Cấu trúc hình học này giải thích hiệu quả của MPS.}
+\end{center}
+
+\vspace{16pt}
+\begin{tikzpicture}[scale=0.85, transform shape,
+  box/.style={rounded corners=4pt, minimum width=2.6cm, minimum height=1cm, align=center, font=\small\bfseries}
+]
+  \node[box, fill=qcyan!15, draw=qcyan, text=qcyan] (algo) at (0,0) {Thuật toán\\[-2pt]{\footnotesize\normalfont SVD liên tiếp}};
+  \node[font=\Large, text=dimtext] at (3.5,0) {$\longrightarrow$};
+  \node[box, fill=qpurple!15, draw=qpurple, text=qpurple] (geom) at (7,0) {Hình học\\[-2pt]{\footnotesize\normalfont Đa tạp $\mathcal{M}_D$}};
+  \node[font=\Large, text=dimtext] at (10.5,0) {$\longrightarrow$};
+  \node[box, fill=qgreen!15, draw=qgreen, text=qgreen] (phys) at (14,0) {Vật lý\\[-2pt]{\footnotesize\normalfont Định luật diện tích}};
+\end{tikzpicture}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% MPS NATURE 1/4 — Đa tạp phi tuyến
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Đa tạp $\mathcal{M}_D$ trong không gian Hilbert}
+
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+
 \vspace{2pt}
 \begin{tikzpicture}[scale=0.88, transform shape]
-  % Hilbert space background
   \draw[fill=pageBg, draw=cardBorder, thick, rounded corners=8pt]
     (-3.0,-2.6) rectangle (3.0,2.8);
   \node[font=\footnotesize\bfseries, text=dimtext] at (0,2.5)
     {$\mathcal{H}$\;\textcolor{dimtext!50}{\tiny($d^N$ chiều)}};
 
-  % D=1 manifold: simple line (product states)
-  \draw[qgreen!80, thick, dashed]
-    (-2.6,-2.1) -- (2.6,-1.4);
+  \draw[qgreen!80, thick, dashed] (-2.6,-2.1) -- (2.6,-1.4);
   \node[qgreen, font=\tiny, right] at (2.6,-1.5) {$\mathcal{M}_{D=1}$};
 
-  % M_D manifold: parabola  y = 0.28x^2 - 1.7
   \draw[qcyan, very thick]
     plot[domain=-2.5:2.5, samples=80] (\x, {0.28*\x*\x - 1.7});
   \node[qcyan, font=\small\bfseries] at (2.05, 0.05) {$\mathcal{M}_D$};
-  \node[qcyan!70, font=\tiny] at (2.05,-0.38) {\textit{nonlinear}};
+  \node[qcyan!70, font=\tiny] at (2.05,-0.38) {\textit{phi tuyến}};
 
-  % psi* = vertex of parabola (0, -1.7) — closest to phi above
   \fill[qcyan] (0,-1.7) circle (3pt);
   \node[qcyan, font=\footnotesize, below] at (0.0,-1.72) {$\ket{\psi^*}$};
 
-  % phi = target state directly above psi*
   \fill[qpink] (0,1.3) circle (3pt);
   \node[qpink, font=\footnotesize, above] at (0,1.3) {$\ket{\phi}$};
 
-  % min-distance line (vertical, nonlinear problem)
   \draw[qpink, dashed, thick] (0,1.3) -- (0,-1.7)
     node[midway, right, font=\tiny, text=qpink] {$\min\|\cdot\|$};
-  \node[qpink!60, font=\tiny] at (0.9,0.0) {\textit{phi tuyến}};
-
-  % Tangent space at psi*: horizontal line (slope=0 at vertex)
-  \draw[qamber, very thick] (-2.8,-1.7) -- (2.8,-1.7);
-  \node[qamber, font=\tiny, right] at (2.8,-1.7)
-    {$T_{\ket{\psi^*}}\!\mathcal{M}_D$};
-
-  % H|psi*> arrow: oblique, leaving tangent space
-  \draw[dimtext, thick, -{Stealth[length=5pt]}]
-    (0,-1.7) -- ++(1.0,1.9)
-    node[right, font=\tiny, text=dimtext] {$H\ket{\psi^*}$};
-
-  % perpendicular drop from tip of H|psi> to tangent line
-  \draw[dimtext!35, dashed, thin] (1.0,0.2) -- (1.0,-1.7);
-  % right-angle marker
-  \draw[dimtext!50, thin]
-    (0.85,-1.7) -- (0.85,-1.55) -- (1.0,-1.55);
-
-  % TDVP: horizontal projection of H|psi*> onto tangent space
-  \draw[qpurple, very thick, -{Stealth[length=5pt]}]
-    (0,-1.7) -- ++(1.0,0)
-    node[below, font=\tiny, text=qpurple] {$\hat{P}H\ket{\psi^*}$};
-
-  % DMRG: motion along M_D toward psi*
-  \draw[qgreen, thick, -{Stealth[length=4pt]}]
-    (-1.8,{0.28*3.24-1.7}) .. controls (-1.1,-1.75) .. (0,-1.7);
-  \node[qgreen!80, font=\tiny] at (-1.55,-2.3) {DMRG sweep};
 \end{tikzpicture}
+
 \end{column}
+\begin{column}{0.52\textwidth}
 
-%── RIGHT: điểm tinh tế ──────────────────────────────────────
-\begin{column}{0.6\textwidth}
-\vspace{2pt}
+\vspace{4pt}
+{\small Tập hợp tất cả MPS với bond dimension $D$ tạo thành một \highlight{mặt cong} $\mathcal{M}_D$ bên trong không gian Hilbert $d^N$ chiều.}
 
-% row 1
-\textcolor{qpink}{\textbf{Không phải không gian con}}\\[1pt]
-{\small $\ket{\psi_1}+\ket{\psi_2}$ có bond $2D$ — thoát ra ngoài $\mathcal{M}_D$.}
+\vspace{8pt}
+\textcolor{qpink}{\textbf{Không phải không gian con}}\\[2pt]
+{\small Cộng hai MPS: $\ket{\psi_1}+\ket{\psi_2}$ có bond $2D$ — thoát ra ngoài $\mathcal{M}_D$.\\
+Đây là mặt cong, không phải mặt phẳng.}
 
-\vspace{2pt}
-% row 2
-\textcolor{qcyan}{\textbf{Tìm $\ket{\psi^*}$ là bài toán phi tuyến}}\\[1pt]
-{\small SVD greedy tối ưu từng bond, không đảm bảo global minimum.\\
-DMRG lặp sweep đến khi hội tụ.}
-
-\vspace{2pt}
-% row 3
-\textcolor{qamber}{\textbf{TDVP mới thực sự là phép chiếu}}\\[1pt]
-{\small $\hat{P}_{T_{\ket{\psi}}\mathcal{M}}$ chiếu $H\ket{\psi}$ lên tangent space —\\
-tuyến tính tại mỗi thời điểm, nhưng không gian tiếp tuyến dịch chuyển theo $\ket{\psi(t)}$.}
-
-\vspace{2pt}
-% row 4
-\textcolor{qgreen}{\textbf{Định luật diện tích đảm bảo $D$ nhỏ là đủ}}\\[1pt]
-{\small $S(\rho_A)=O(1)$ $\Rightarrow$ ground state nằm sát $\mathcal{M}_D$ ngay cả khi $D\ll d^{N/2}$.}
+\vspace{8pt}
+\textcolor{qcyan}{\textbf{Tìm $\ket{\psi^*}$ gần $\ket{\phi}$ nhất là bài toán phi tuyến}}\\[2pt]
+{\small Không thể dùng phép chiếu tuyến tính thông thường. Cần thuật toán lặp.}
 
 \end{column}
 \end{columns}
+
 \end{frame}
 
 % ══════════════════════════════════════
-% LIMITATIONS
+% NỀN TẢNG: Hamiltonian & trạng thái cơ bản
 % ══════════════════════════════════════
-\begin{frame}{Giới hạn của MPS}
+\begin{frame}[shrink=3]{Bài toán trạng thái cơ bản}
+
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 
-  \textcolor{qpink}{\textbf{1. Entanglement bị chặn}}\\[2pt]
-  {\small $S \leq \log D$ — MPS chỉ biểu diễn trạng thái có vướng víu thấp.\\[3pt]
-  Vi phạm định luật diện tích $\Rightarrow$ $D$ tăng theo hàm mũ:}
-  \vspace{-2pt}
-  \begin{itemize}\small
-    \item Critical 1D: $S\sim\tfrac{c}{3}\log N \Rightarrow D\sim N^{c/6}$
-    \item 2D bất kỳ: $S\sim L \Rightarrow D\sim e^{L}$
-  \end{itemize}
+\textcolor{qcyan}{\textbf{Hamiltonian là gì?}}\\[3pt]
+{\small Hamiltonian $H$: ma trận Hermitian mô tả \textbf{năng lượng} của hệ.
 
-  \vspace{6pt}
-  \textcolor{qpink}{\textbf{2. Bức tường vướng víu trong diễn tiến thời gian}}\\[2pt]
-  {\small Sau sự thay đổi đột ngột của tham số Hamiltonian: $S(t)\sim\alpha t$, nên $D(t)\sim e^{\alpha t}$.\\
-  MPS \warn{thất bại} sau thời gian ngắn $t^* \sim \frac{\log D}{\alpha}$.}
+\vspace{4pt}
+Với hệ $N$ site, $H$ có kích thước $d^N \times d^N$. Ví dụ $N=40$ qubit: ma trận $10^{12} \times 10^{12}$ — không thể lưu trữ.}
 
-  \vspace{6pt}
-  \textcolor{qpink}{\textbf{3. Thuần túy 1D}}\\[2pt]
-  {\small Cấu trúc chuỗi tuyến tính. Hệ ladder, cylinder, hay 2D đòi bond dimension tăng mũ hoặc phải chuyển sang PEPS.}
+\vspace{8pt}
+\textcolor{qcyan}{\textbf{Trạng thái cơ bản (ground state)}}\\[3pt]
+{\small Vector riêng ứng với trị riêng nhỏ nhất:}
+\eqn{H\ket{\psi_0} = E_0\ket{\psi_0}}
+{\small $E_0$: năng lượng thấp nhất.\\
+$\ket{\psi_0}$: trạng thái ổn định nhất — quan trọng nhất trong vật lý.}
 
 \end{column}
 \begin{column}{0.48\textwidth}
 
-  \textcolor{qpink}{\textbf{4. Co rút hiệu quả — chỉ may mắn ở 1D}}\\[2pt]
-  {\small MPS: $O(ND^3)$ — khả thi.\\
-  Mở rộng sang PEPS 2D: \warn{\#P-khó} — mọi tính toán đều phải xấp xỉ.}
+\vspace{2pt}
+\textcolor{qpurple}{\textbf{Tại sao khó?}}\\[3pt]
+{\small
+\begin{itemize}
+  \item Giải trực tiếp $H\ket{\psi} = E\ket{\psi}$: tốn $O(d^{3N})$ — bất khả thi
+  \item Nhưng $\ket{\psi_0}$ thường có cấu trúc đặc biệt: entanglement thấp (xem định luật diện tích)
+\end{itemize}}
 
-  \vspace{6pt}
-  \textcolor{qpink}{\textbf{5. Trạng thái kích thích \& hỗn hợp}}\\[2pt]
-  {\small Tối ưu tốt nhất cho trạng thái cơ bản.\\
-  Trạng thái kích thích cần bổ sung điều kiện trực giao — chi phí tăng theo số trạng thái.\\
-  Nhiệt độ hữu hạn: cần toán tử tích ma trận (MPO), tốn $D^2$ lần hơn.}
-
-  \vspace{6pt}
-  \textcolor{qpink}{\textbf{6. Dấu Fermion \& hệ thất vọng}}\\[2pt]
-  {\small Cần chuỗi Jordan--Wigner cho Fermion — tính cục bộ bị phá vỡ trong 2D.\\
-  Mạng tinh thể thất vọng: vấn đề dấu vẫn có thể xuất hiện.}
-
-  \vspace{6pt}
-  {\small\textcolor{dimtext}{$\Rightarrow$ Mỗi giới hạn mở ra một hướng mở rộng:\\MERA, PEPS, NQS, cMPS, isoTNS\ldots}}
+\vspace{8pt}
+\textcolor{qamber}{\textbf{Ý tưởng}}\\[3pt]
+{\small Thay vì giải trên toàn bộ $\mathcal{H}$ ($d^N$ chiều), tìm $\ket{\psi_0}$ trên đa tạp MPS $\mathcal{M}_D$ chỉ có $O(ND^2d)$ tham số:}
+\eqn{\min_{\ket{\psi}\in\mathcal{M}_D} \braket{\psi|H|\psi}}
+{\small Đây là bài toán mà DMRG giải.}
 
 \end{column}
 \end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% MPS NATURE 2/4 — DMRG
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=5]{DMRG --- tối ưu hóa trên $\mathcal{M}_D$}
+
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+
+\vspace{2pt}
+\begin{tikzpicture}[scale=0.88, transform shape]
+  \draw[fill=pageBg, draw=cardBorder, thick, rounded corners=8pt]
+    (-3.0,-2.6) rectangle (3.0,2.8);
+  \node[font=\footnotesize\bfseries, text=dimtext] at (0,2.5)
+    {$\mathcal{H}$};
+
+  \draw[qcyan, very thick]
+    plot[domain=-2.5:2.5, samples=80] (\x, {0.28*\x*\x - 1.7});
+  \node[qcyan, font=\small\bfseries] at (2.05, 0.05) {$\mathcal{M}_D$};
+
+  \fill[qcyan] (0,-1.7) circle (3pt);
+  \node[qcyan, font=\footnotesize, below] at (0.0,-1.72) {$\ket{\psi^*}$};
+
+  \draw[qgreen, very thick, -{Stealth[length=5pt]}]
+    (-1.8,{0.28*3.24-1.7}) .. controls (-1.1,-1.75) .. (0,-1.7);
+  \node[qgreen, font=\small\bfseries] at (-1.55,-2.3) {DMRG};
+\end{tikzpicture}
+
+\vspace{6pt}
+\begin{tikzpicture}[scale=0.75, transform shape,
+  site/.style={circle, draw=dimtext, fill=white, minimum size=0.5cm, inner sep=0pt, font=\tiny},
+  active/.style={circle, draw=qgreen, fill=qgreen!25, minimum size=0.5cm, inner sep=0pt, font=\tiny\bfseries}
+]
+  \foreach \i in {1,...,6} {
+    \ifnum\i=3
+      \node[active] (s\i) at (\i*0.9, 0) {\i};
+    \else
+      \node[site] (s\i) at (\i*0.9, 0) {\i};
+    \fi
+  }
+  \draw[thick, dimtext] (s1) -- (s2) -- (s3) -- (s4) -- (s5);
+  \draw[qgreen, very thick, -{Stealth[length=4pt]}] (0.5,-0.5) -- (5.8,-0.5);
+  \node[font=\tiny, text=qgreen] at (3.2,-0.8) {sweep $\longrightarrow$};
+\end{tikzpicture}
+
+\end{column}
+\begin{column}{0.52\textwidth}
+
+\vspace{4pt}
+{\small DMRG (White, 1992) tìm trạng thái cơ bản bằng cách tối ưu \textbf{từng tensor một}, quét qua lại:}
+
+\vspace{6pt}
+{\small
+\begin{enumerate}
+  \item Chọn site $i$, cố định tất cả tensor khác
+  \item Giải bài toán trị riêng nhỏ cho tensor tại $i$
+  \item Di chuyển sang site $i{+}1$, lặp lại
+  \item Quét trái $\to$ phải $\to$ trái cho đến khi hội tụ
+\end{enumerate}}
+
+\vspace{6pt}
+\textcolor{qgreen}{\textbf{Tương đương tối ưu hóa tọa độ}}\\[2pt]
+{\small Mỗi bước là bài toán tuyến tính (trị riêng), nhưng tổng thể là phi tuyến vì các tensor phụ thuộc nhau.}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% DMRG — Environment & Effective Hamiltonian
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{DMRG --- Hamiltonian hiệu dụng $H_\text{eff}$}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qcyan}{\textbf{Mixed-canonical tại site $i$}}\\[3pt]
+{\small Đưa MPS về dạng mixed-canonical với tâm tại site $i$. Mọi tensor trái đã left-canonical, phải đã right-canonical.}
+
+\vspace{6pt}
+\textcolor{qpurple}{\textbf{Environment trái $L_i$ và phải $R_i$}}\\[2pt]
+{\small Co rút tất cả tensor trái (phải) site $i$ với MPO:}
+\eqn{L_i = \text{contract}(A_1^\dagger W_1 A_1 \cdots A_{i-1}^\dagger W_{i-1} A_{i-1})}
+
+{\small $L_i$, $R_i$ là tensor 3 chỉ số: $(D_\text{MPS},\, D_W,\, D_\text{MPS})$.}
+
+\vspace{6pt}
+\textcolor{qgreen}{\textbf{Hamiltonian hiệu dụng}}\\[2pt]
+{\small Tại site $i$, bài toán tối ưu trở thành:}
+\eqn{H_\text{eff}\,\vec{A}_i = E\,\vec{A}_i}
+{\small $H_\text{eff}$ xây từ $L_i$, $W_i$, $R_i$ — ma trận $(D^2 d \times D^2 d)$.}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.7, transform shape,
+  env/.style={draw=#1, fill=#1!12, rounded corners=3pt, minimum width=0.8cm, minimum height=1.0cm, font=\scriptsize\bfseries, text=#1},
+  mpo/.style={draw=qamber, fill=qamber!12, rounded corners=2pt, minimum width=0.7cm, minimum height=0.6cm, font=\scriptsize\bfseries, text=qamber},
+  tensor/.style={draw=qgreen, fill=qgreen!15, rounded corners=3pt, minimum width=0.7cm, minimum height=0.7cm, font=\scriptsize\bfseries, text=qgreen},
+  leg/.style={thick, color=dimtext}
+]
+  \node[env=qcyan] (L) at (0,0) {$L_i$};
+  \node[mpo] (W) at (2,0) {$W_i$};
+  \node[env=qpurple] (R) at (4,0) {$R_i$};
+  \node[tensor] (A) at (2,1.5) {$A_i$};
+  \node[tensor] (Ab) at (2,-1.5) {$A_i^*$};
+
+  \draw[leg] (L.east) -- (W.west);
+  \draw[leg] (W.east) -- (R.west);
+  \draw[leg] (L.north east) -- (A.west);
+  \draw[leg] (A.east) -- (R.north west);
+  \draw[leg] (L.south east) -- (Ab.west);
+  \draw[leg] (Ab.east) -- (R.south west);
+  \draw[leg] (W.north) -- (A.south);
+  \draw[leg] (W.south) -- (Ab.north);
+
+  \draw[thick, qpurple] (A.north) -- ++(0,0.4) node[above, font=\tiny, text=qpurple] {$s_i$};
+  \draw[thick, qpink] (Ab.south) -- ++(0,-0.4) node[below, font=\tiny, text=qpink] {$s'_i$};
+\end{tikzpicture}
+\end{center}
+
+\vspace{6pt}
+\textcolor{qamber}{\textbf{Quy trình sweep}}\\[2pt]
+{\small
+\begin{enumerate}
+  \item Co rút $L_i$, $R_i$ từ environment cũ: $O(D^3 D_W d)$
+  \item Xây $H_\text{eff}$ từ $L_i W_i R_i$
+  \item Giải trị riêng nhỏ nhất (Lanczos): $O(D^3 D_W d)$
+  \item Cập nhật $A_i$, di chuyển tâm sang $i{\pm}1$
+\end{enumerate}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% DMRG — Code
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=3]{DMRG --- cài đặt}
+
+\begin{lstlisting}
+def dmrg(mps, mpo, n_sweeps, D_max):
+    N = len(mps)
+    L_env, R_env = build_environments(mps, mpo)
+
+    for sweep in range(n_sweeps):
+        # Sweep left -> right
+        for i in range(N - 1):
+            H_eff = build_H_eff(L_env[i], mpo[i], R_env[i])
+            E, v  = eigsh(H_eff, k=1, which='SA')
+            mps[i] = v.reshape(mps[i].shape)
+            # Move canonical center right
+            U, S, Vh = svd(mps[i].reshape(-1, mps[i].shape[-1]))
+            D = min(len(S), D_max)
+            mps[i]   = U[:,:D].reshape(mps[i].shape[0], -1, D)
+            mps[i+1] = einsum('ij,jkl', diag(S[:D]) @ Vh[:D,:],
+                              mps[i+1])
+            L_env[i+1] = update_left_env(L_env[i], mps[i], mpo[i])
+        # Sweep right -> left (symmetric)
+    return E, mps
+\end{lstlisting}
+
+\vspace{4pt}
+{\small\textcolor{dimtext}{\textbf{Chi phí mỗi sweep:} $O(ND^3 D_W d + ND^3 d^2)$. Thường hội tụ sau 5--10 sweeps cho hệ gapped.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% MPS NATURE 3/4 — TDVP
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{TDVP --- phép chiếu tiếp tuyến}
+
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+
+\vspace{2pt}
+\begin{tikzpicture}[scale=0.88, transform shape]
+  \draw[fill=pageBg, draw=cardBorder, thick, rounded corners=8pt]
+    (-3.0,-2.6) rectangle (3.0,2.8);
+  \node[font=\footnotesize\bfseries, text=dimtext] at (0,2.5)
+    {$\mathcal{H}$};
+
+  \draw[qcyan, very thick]
+    plot[domain=-2.5:2.5, samples=80] (\x, {0.28*\x*\x - 1.7});
+  \node[qcyan, font=\small\bfseries] at (2.05, 0.05) {$\mathcal{M}_D$};
+
+  \fill[qcyan] (0,-1.7) circle (3pt);
+  \node[qcyan, font=\footnotesize, below left] at (0.0,-1.72) {$\ket{\psi}$};
+
+  \draw[qamber, very thick] (-2.8,-1.7) -- (2.8,-1.7);
+  \node[qamber, font=\tiny, right] at (2.8,-1.7)
+    {$T_{\ket{\psi}}\!\mathcal{M}_D$};
+
+  \draw[dimtext, thick, -{Stealth[length=5pt]}]
+    (0,-1.7) -- ++(1.0,1.9)
+    node[right, font=\tiny, text=dimtext] {$H\ket{\psi}$};
+
+  \draw[dimtext!35, dashed, thin] (1.0,0.2) -- (1.0,-1.7);
+  \draw[dimtext!50, thin]
+    (0.85,-1.7) -- (0.85,-1.55) -- (1.0,-1.55);
+
+  \draw[qpurple, very thick, -{Stealth[length=5pt]}]
+    (0,-1.7) -- ++(1.0,0)
+    node[below, font=\tiny, text=qpurple] {$\hat{P}H\ket{\psi}$};
+\end{tikzpicture}
+
+\end{column}
+\begin{column}{0.52\textwidth}
+
+\vspace{4pt}
+{\small Phương trình Schrödinger: $i\partial_t\ket{\psi} = H\ket{\psi}$.\\[2pt]
+Nhưng $H\ket{\psi}$ thường \textit{thoát ra ngoài} $\mathcal{M}_D$.}
+
+\vspace{6pt}
+\textcolor{qpurple}{\textbf{TDVP chiếu $H\ket{\psi}$ lên không gian tiếp tuyến:}}
+\eqn{i\partial_t\ket{\psi} = \hat{P}_{T_\psi\mathcal{M}} H\ket{\psi}}
+
+\vspace{2pt}
+{\small
+\begin{itemize}
+  \item Tại mỗi thời điểm: phép chiếu \textbf{tuyến tính}
+  \item Theo thời gian: không gian tiếp tuyến \textbf{dịch chuyển} theo $\ket{\psi(t)}$
+  \item Không có sai số Trotter (khác TEBD)
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% NỀN TẢNG: Khe năng lượng & hệ tới hạn
+% ══════════════════════════════════════
+\begin{frame}[shrink=5]{Hệ có khe và hệ tới hạn}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qgreen}{\textbf{Hệ có khe (gapped)}}\\[3pt]
+{\small Khe năng lượng: $\Delta = E_1 - E_0 > 0$}
+
+\vspace{4pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.7, transform shape]
+  \draw[-{Stealth}, thick, dimtext] (0,0) -- (0,3.5) node[above, font=\small] {$E$};
+  % Ground state
+  \fill[qgreen!30] (-1.5,0.3) rectangle (1.5,0.5);
+  \node[font=\small, text=qgreen, right] at (1.6,0.4) {$E_0$};
+  % Gap
+  \draw[qamber, very thick, {Stealth}-{Stealth}] (0,0.5) -- (0,1.5);
+  \node[font=\small\bfseries, text=qamber, right] at (0.1,1.0) {$\Delta > 0$};
+  % Excited states
+  \fill[qpink!20] (-1.5,1.5) rectangle (1.5,1.7);
+  \fill[qpink!20] (-1.5,2.0) rectangle (1.5,2.2);
+  \fill[qpink!20] (-1.5,2.5) rectangle (1.5,2.7);
+  \node[font=\small, text=qpink, right] at (1.6,1.6) {$E_1$};
+\end{tikzpicture}
+\end{center}
+
+{\small
+\begin{itemize}
+  \item Tương quan suy giảm \textbf{theo hàm mũ}: $\langle O_i O_j\rangle \sim e^{-|i-j|/\xi}$
+  \item Entanglement \textbf{thấp}: $S = O(1)$
+  \item MPS hoạt động \textbf{rất tốt}
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{Hệ tới hạn (critical)}}\\[3pt]
+{\small Khe đóng lại: $\Delta \to 0$}
+
+\vspace{4pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.7, transform shape]
+  \draw[-{Stealth}, thick, dimtext] (0,0) -- (0,3.5) node[above, font=\small] {$E$};
+  % Dense spectrum
+  \foreach \y in {0.3, 0.5, 0.65, 0.85, 1.05, 1.3, 1.6, 1.95, 2.35, 2.8} {
+    \fill[qpink!25] (-1.5,\y) rectangle (1.5,{\y+0.12});
+  }
+  \node[font=\small, text=qpink, right] at (1.6,0.36) {$E_0$};
+  \node[font=\small, text=qpink, right] at (1.6,0.56) {$E_1$};
+  \draw[dimtext, thin, {Stealth}-{Stealth}] (-0.3,0.42) -- (-0.3,0.56);
+  \node[font=\tiny, text=dimtext, left] at (-0.3,0.49) {$\Delta\!\to\!0$};
+\end{tikzpicture}
+\end{center}
+
+{\small
+\begin{itemize}
+  \item Tương quan giảm chậm \textbf{(lũy thừa)}: $\langle O_i O_j\rangle \sim |i{-}j|^{-\eta}$
+  \item Entanglement \textbf{logarithmic}: $S \sim \frac{c}{3}\log N$
+  \item $c$: central charge — đặc trưng của lớp phổ quát
+  \item MPS cần $D \sim N^{c/6}$ — \textbf{đắt hơn}
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\vspace{6pt}
+{\small\textcolor{dimtext}{Phân biệt gapped/critical quyết định MPS hoạt động tốt đến đâu — và khi nào cần biến thể khác.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% MPS NATURE 4/4 — Định luật diện tích
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=5]{Định luật diện tích (area law)}
+
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+
+\vspace{8pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.85, transform shape,
+  site/.style={circle, draw=qcyan, fill=qcyan!15, minimum size=0.55cm, inner sep=0pt, font=\tiny\bfseries}
+]
+  \foreach \i in {1,...,8} {
+    \node[site] (s\i) at (\i*0.9, 0) {\i};
+  }
+  \draw[thick, dimtext] (s1) -- (s2) -- (s3) -- (s4) -- (s5) -- (s6) -- (s7) -- (s8);
+
+  \draw[qpink, very thick, dashed] (4.05, -0.8) -- (4.05, 0.8);
+  \node[qpink, font=\small\bfseries, above] at (4.05, 0.8) {cắt};
+
+  \draw[decorate, decoration={brace, amplitude=5pt, mirror}, thick, qcyan]
+    (0.7,-0.6) -- (3.8,-0.6) node[midway, below=6pt, font=\small, text=qcyan] {$A$};
+  \draw[decorate, decoration={brace, amplitude=5pt, mirror}, thick, qpurple]
+    (4.3,-0.6) -- (7.5,-0.6) node[midway, below=6pt, font=\small, text=qpurple] {$B$};
+
+  \node[font=\small, text=qpink] at (4.05, -1.6) {$S(A:B) = O(1)$};
+\end{tikzpicture}
+\end{center}
+
+\vspace{10pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.6, transform shape]
+  \foreach \x in {0,...,4} {
+    \foreach \y in {0,...,3} {
+      \fill[qcyan!40] (\x*0.7, \y*0.7) circle (2pt);
+    }
+  }
+  \draw[qpink, very thick, dashed] (1.4, -0.3) -- (1.4, 2.4);
+  \node[qpink, font=\tiny, above] at (1.4, 2.4) {cắt};
+  \node[font=\tiny, text=qpink, below] at (1.4, -0.5) {$S \sim L$};
+  \node[font=\tiny, text=dimtext] at (1.4, -1.0) {(2D: tỉ lệ biên)};
+\end{tikzpicture}
+\end{center}
+
+\end{column}
+\begin{column}{0.52\textwidth}
+
+\vspace{4pt}
+\textcolor{qgreen}{\textbf{Định luật diện tích (1D)}}\\[2pt]
+{\small Trạng thái cơ bản của Hamiltonian có khe năng lượng:\\
+entanglement entropy giữa hai nửa chuỗi là \textbf{hằng số} — không tăng theo $N$.}
+\eqn{S(\rho_A) = O(1)}
+
+\vspace{2pt}
+\textcolor{qgreen}{\textbf{Hệ quả cho MPS}}\\[2pt]
+{\small Vì $S \leq \log D$, chỉ cần $D = O(1)$ là đủ biểu diễn ground state!\\
+Ground state ``sống gần'' $\mathcal{M}_D$ ngay cả khi $D \ll d^{N/2}$.}
+
+\vspace{8pt}
+\textcolor{qpink}{\textbf{Đối chiếu: 2D}}\\[2pt]
+{\small $S \sim L$ (tỉ lệ biên cắt) $\Rightarrow$ $D \sim e^L$ — MPS không đủ.}
+
+\vspace{8pt}
+{\small\textcolor{dimtext}{\textbf{Vật lý} (area law) biện minh cho \textbf{Toán} (xấp xỉ hạng thấp) và giải thích tại sao \textbf{thuật toán} (DMRG) chạy nhanh.}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% HỆ QUẢ: KHÔNG GIAO HOÁN → GIỚI HẠN
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Hệ quả của tính không giao hoán}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{Vấn đề 2D: không có thứ tự tự nhiên}}\\[3pt]
+{\small Tích ma trận yêu cầu sắp xếp các site thành \textbf{một hàng}. Mạng 2D không có thứ tự duy nhất.
+
+\vspace{4pt}
+Hai cách cuộn khác nhau cho kết quả khác nhau — vì ma trận không giao hoán. PEPS giải quyết bằng cách dùng tensor nhiều chỉ số thay vì tích ma trận.}
+
+\vspace{8pt}
+\textcolor{qpink}{\textbf{Fermion: phản giao hoán}}\\[3pt]
+{\small Toán tử Fermion thỏa:}
+\eqn{\{c_i, c_j^\dagger\} = \delta_{ij}}
+{\small Khác bản chất so với giao hoán boson. Chuỗi Jordan--Wigner chuyển đổi được ở 1D, nhưng \textbf{phá vỡ tính cục bộ} ở 2D.}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.75, transform shape,
+  site/.style={circle, draw=qcyan, fill=qcyan!15, minimum size=0.4cm, inner sep=0pt, font=\tiny}
+]
+  % 2D grid
+  \foreach \x in {0,...,2} {
+    \foreach \y in {0,...,2} {
+      \node[site] (g\x\y) at (\x*1.0, \y*1.0) {};
+    }
+  }
+  \foreach \x in {0,...,2} {
+    \draw[dimtext, thick] (g\x0) -- (g\x1) -- (g\x2);
+  }
+  \foreach \y in {0,...,2} {
+    \draw[dimtext, thick] (g0\y) -- (g1\y) -- (g2\y);
+  }
+
+  % Two different orderings
+  \draw[qgreen, very thick, -{Stealth[length=4pt]}]
+    (g00.center) -- (g10.center) -- (g20.center) -- (g21.center) -- (g11.center) -- (g01.center) -- (g02.center) -- (g12.center) -- (g22.center);
+  \node[font=\tiny, text=qgreen, below] at (1,-0.4) {thứ tự 1};
+
+  \node[font=\large, text=dimtext] at (3.5,1) {$\neq$};
+
+  \foreach \x in {0,...,2} {
+    \foreach \y in {0,...,2} {
+      \node[site] (h\x\y) at ({5+\x*1.0}, \y*1.0) {};
+    }
+  }
+  \foreach \x in {0,...,2} {
+    \draw[dimtext, thick] (h\x0) -- (h\x1) -- (h\x2);
+  }
+  \foreach \y in {0,...,2} {
+    \draw[dimtext, thick] (h0\y) -- (h1\y) -- (h2\y);
+  }
+
+  \draw[qpurple, very thick, -{Stealth[length=4pt]}]
+    (h00.center) -- (h01.center) -- (h02.center) -- (h12.center) -- (h11.center) -- (h10.center) -- (h20.center) -- (h21.center) -- (h22.center);
+  \node[font=\tiny, text=qpurple, below] at (6,-0.4) {thứ tự 2};
+\end{tikzpicture}
+\end{center}
+
+{\small\centering Hai cách cuộn mạng 2D thành 1D\\cho kết quả khác nhau vì $AB\neq BA$.\par}
+
+\vspace{8pt}
+\textcolor{qamber}{\textbf{Tóm lại}}\\[3pt]
+{\small Tính không giao hoán vừa là \textbf{sức mạnh} (mã hóa entanglement) vừa là \textbf{nguồn gốc} các giới hạn (phụ thuộc thứ tự, chỉ tự nhiên ở 1D).
+
+\vspace{2pt}
+Các biến thể được thiết kế để \textit{vượt qua} ràng buộc này.}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% BRIDGE: Khi nào MPS thất bại?
+% ══════════════════════════════════════
+\begin{frame}{Giới hạn của MPS}
+
+\vspace{16pt}
+\begin{center}
+{\large Định luật diện tích xác định \textit{khi nào MPS hoạt động tốt}.\\[8pt]
+Tính không giao hoán giải thích \textit{tại sao MPS gắn với 1D}.\\[8pt]
+Phần tiếp theo: \textit{sáu giới hạn cụ thể} của biểu diễn MPS.}
+\end{center}
+
+\vspace{20pt}
+{\small\textcolor{dimtext}{Mỗi giới hạn dẫn đến một biến thể tensor network tương ứng.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% GIỚI HẠN 1: Entanglement bị chặn
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Cận trên entanglement: $S \leq \log D$}
+
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+
+{\small MPS với bond dimension $D$ chỉ chứa được:}
+\eqn{S \leq \log D}
+
+{\small Khi hệ vật lý có entanglement cao hơn, $D$ phải tăng để bù:}
+
+\vspace{4pt}
+{\small
+\begin{tabular}{@{}ll@{}}
+\textbf{Hệ tới hạn 1D} & $S\sim\tfrac{c}{3}\log N$ \\
+& $\Rightarrow D\sim N^{c/6}$ {\footnotesize (đa thức, nhưng đắt)} \\[4pt]
+\textbf{Hệ 2D} & $S\sim L$ \\
+& $\Rightarrow D\sim e^{L}$ {\footnotesize\warn{(hàm mũ)}} \\
+\end{tabular}}
+
+\end{column}
+\begin{column}{0.47\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.8, transform shape]
+  % Container metaphor
+  \draw[qcyan, very thick, rounded corners=4pt] (0,0) rectangle (3,2.5);
+  \node[font=\small\bfseries, text=qcyan] at (1.5,2.8) {$\log D$};
+
+  % Fill levels
+  \fill[qgreen!30] (0.1,0.1) rectangle (2.9,0.8);
+  \node[font=\tiny, text=qgreen] at (1.5,0.45) {1D gapped: vừa đủ};
+
+  \fill[qamber!30] (0.1,0.9) rectangle (2.9,1.8);
+  \node[font=\tiny, text=qamber] at (1.5,1.35) {1D critical: chật};
+
+  % Overflow
+  \fill[qpink!30] (0.1,1.9) rectangle (2.9,2.4);
+  \draw[qpink, very thick, -{Stealth}] (1.5,2.5) -- (1.5,3.3);
+  \node[font=\tiny\bfseries, text=qpink] at (1.5,3.5) {2D: vượt $\log D$};
+\end{tikzpicture}
+\end{center}
+
+\end{column}
+\end{columns}
+
+\vspace{6pt}
+{\small\textcolor{dimtext}{$\hookrightarrow$ \highlight{MERA} cho hệ tới hạn, \highlight{PEPS} cho 2D, \highlight{Hybrid MPS+NQS} cho entanglement cao.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% GIỚI HẠN 2: Bức tường thời gian
+% ══════════════════════════════════════
+\begin{frame}[shrink=5]{Bức tường entanglement: $S(t) \sim \alpha t$}
+
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+
+{\small \textbf{Quench}: thay đổi đột ngột Hamiltonian $H_1 \to H_2$ tại $t=0$.\\
+Sau quench, entanglement tăng tuyến tính theo thời gian:}
+\eqn{S(t) \sim \alpha\, t}
+
+{\small Do đó bond dimension cần thiết tăng theo hàm mũ:}
+\eqn{D(t) \sim e^{\alpha t}}
+
+{\small MPS \warn{thất bại} sau thời gian ngắn:}
+\eqn{t^* \sim \frac{\log D}{\alpha}}
+
+{\small Đây là giới hạn \textbf{cơ bản} — không phải do thuật toán yếu, mà do cấu trúc MPS không đủ chứa entanglement phát sinh.}
+
+\end{column}
+\begin{column}{0.47\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.85, transform shape]
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (5,0) node[right, font=\small] {$t$};
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (0,3.5) node[above, font=\small] {$S(t)$};
+
+  % S(t) linear
+  \draw[qpink, very thick] (0,0) -- (4.5,3);
+
+  % log D threshold
+  \draw[qcyan, dashed, thick] (0,1.5) -- (5,1.5);
+  \node[qcyan, font=\small, left] at (0,1.5) {$\log D$};
+
+  % t* mark
+  \draw[qamber, thick, dashed] (2.25,0) -- (2.25,1.5);
+  \fill[qamber] (2.25,1.5) circle (3pt);
+  \node[qamber, font=\small\bfseries, below] at (2.25,0) {$t^*$};
+
+  % Regions
+  \fill[qgreen!15] (0,0) -- (2.25,0) -- (2.25,1.5) -- (0,0);
+  \fill[qpink!10] (2.25,0) rectangle (4.8,3.2);
+  \node[font=\tiny, text=qgreen] at (0.9,0.4) {MPS OK};
+  \node[font=\tiny, text=qpink] at (3.8,2.5) {MPS thất bại};
+\end{tikzpicture}
+\end{center}
+
+\end{column}
+\end{columns}
+
+\vspace{4pt}
+{\small\textcolor{dimtext}{$\hookrightarrow$ \highlight{MERA}, \highlight{NQS} — không bị giới hạn bởi cấu trúc chuỗi.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% GIỚI HẠN 3: Thuần túy 1D
+% ══════════════════════════════════════
+\begin{frame}[fragile]{Giới hạn chiều không gian}
+
+MPS là chuỗi tuyến tính. Muốn dùng cho 2D phải ``cuộn'' thành 1D.
+
+\vspace{8pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.8, transform shape,
+  site/.style={circle, draw=qcyan, fill=qcyan!15, minimum size=0.4cm, inner sep=0pt}
+]
+  % 2D grid
+  \foreach \x in {0,...,3} {
+    \foreach \y in {0,...,2} {
+      \node[site] (g\x\y) at (\x*1.2, \y*1.0) {};
+    }
+  }
+  % Vertical connections
+  \foreach \x in {0,...,3} {
+    \draw[dimtext, thick] (g\x0) -- (g\x1) -- (g\x2);
+  }
+  % Horizontal connections
+  \foreach \y in {0,...,2} {
+    \draw[dimtext, thick] (g0\y) -- (g1\y) -- (g2\y) -- (g3\y);
+  }
+  \node[font=\small, text=dimtext, below] at (1.8,-0.3) {mạng 2D};
+
+  % Arrow
+  \node[font=\Large, text=qpink] at (5.5,1) {$\longrightarrow$};
+  \node[font=\tiny, text=qpink] at (5.5,0.5) {cuộn};
+
+  % 1D chain
+  \foreach \i in {1,...,12} {
+    \node[site, minimum size=0.3cm] (c\i) at ({6.5+\i*0.5}, 1) {};
+  }
+  \draw[dimtext] (c1)--(c2)--(c3)--(c4)--(c5)--(c6)--(c7)--(c8)--(c9)--(c10)--(c11)--(c12);
+  \node[font=\small, text=dimtext, below] at (9.5,0.5) {chuỗi 1D: $D \sim e^{\text{chu vi}}$};
+\end{tikzpicture}
+\end{center}
+
+\vspace{8pt}
+{\small Bond dimension phải tăng theo \warn{hàm mũ của chu vi} — nhanh chóng không khả thi.}
+
+\vspace{8pt}
+{\small\textcolor{dimtext}{$\hookrightarrow$ \highlight{PEPS} (tensor network 2D tự nhiên), \highlight{isoTNS} (PEPS + ràng buộc isometric).}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% GIỚI HẠN 4: Co rút
+% ══════════════════════════════════════
+\begin{frame}{Độ phức tạp co rút}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qgreen}{\textbf{MPS (1D)}}\\[4pt]
+{\small Tính $\braket{\psi|O|\psi}$ chỉ tốn:}
+\eqn{O(ND^3)}
+{\small Co rút tuần tự từ trái sang phải — hoàn toàn khả thi.}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{PEPS (2D)}}\\[4pt]
+{\small Ngay cả tính norm $\braket{\psi|\psi}$ đã là:}
+\eqn{\text{\warn{\#P-khó}}}
+{\small Không có thuật toán đa thức chính xác. Mọi tính toán đều phải xấp xỉ.
+
+\vspace{4pt}
+\textcolor{dimtext}{\footnotesize\textbf{\#P}: lớp bài toán đếm — khó hơn NP. Ngay cả \textit{xấp xỉ} cũng không có thuật toán đa thức tổng quát.}}
+
+\end{column}
+\end{columns}
+
+\vspace{8pt}
+{\small\textcolor{dimtext}{$\hookrightarrow$ \highlight{isoTNS} — co rút chính xác nhờ ràng buộc isometric (đổi lại: BQP-complete).}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% GIỚI HẠN 5: Kích thích & nhiệt độ
+% ══════════════════════════════════════
+\begin{frame}{Kích thích và nhiệt độ hữu hạn}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{Trạng thái kích thích}}\\[4pt]
+{\small MPS tối ưu cho ground state. Muốn tìm trạng thái kích thích thứ $k$:
+\begin{itemize}
+  \item Cần ràng buộc trực giao với $k{-}1$ trạng thái trước
+  \item Chi phí tăng theo số trạng thái cần tìm
+  \item Thuật toán phức tạp hơn đáng kể
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{Nhiệt độ hữu hạn ($T>0$)}}\\[4pt]
+{\small Cần biểu diễn ma trận mật độ $\rho$ thay vì trạng thái thuần:
+\begin{itemize}
+  \item Dùng toán tử tích ma trận (MPO)
+  \item Chi phí: $D^2$ lần hơn MPS thuần
+  \item Tương đương ``hai tầng'' MPS
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\vspace{12pt}
+{\small\textcolor{dimtext}{$\hookrightarrow$ \highlight{Hybrid MPS+NQS} — mạng neural hiệu chỉnh phần MPS bỏ sót.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% GIỚI HẠN 6: Fermion & frustrated
+% ══════════════════════════════════════
+\begin{frame}{Fermion và hệ frustrated}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{Vấn đề Fermion}}\\[4pt]
+{\small Fermion phản giao hoán: $\{c_i, c_j^\dagger\} = \delta_{ij}$ — khác boson (giao hoán).
+
+\vspace{2pt}
+Biến đổi Jordan--Wigner ánh xạ fermion $\to$ spin:\\
+$c_j \to \bigl(\prod_{k<j}(-1)^{n_k}\bigr)\sigma_j^-$ — chuỗi dấu dài $j$ site.
+
+\vspace{4pt}
+\begin{itemize}
+  \item \textbf{1D:} chuỗi dấu vẫn cục bộ — xử lý được
+  \item \textbf{2D:} chuỗi dấu phá vỡ tính cục bộ — bond dimension \warn{bùng nổ}
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{Hệ thất vọng (frustrated)}}\\[4pt]
+{\small Mạng tinh thể thất vọng (ví dụ: tam giác, kagome):
+
+\vspace{4pt}
+\begin{itemize}
+  \item Cảnh quan năng lượng phức tạp
+  \item Nhiều cực tiểu gần suy biến
+  \item Thuật toán dễ mắc kẹt tại cực tiểu địa phương
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\vspace{12pt}
+{\small\textcolor{dimtext}{$\hookrightarrow$ \highlight{fPEPS} (Fermion PEPS — Corboz), \highlight{Hybrid MPS+NQS} (vượt vấn đề dấu bằng mạng neural).}}
+
 \end{frame}
 % ══════════════════════════════════════
 % MOTIVATION
 % ══════════════════════════════════════
-\begin{frame}[shrink=5]{Các biến thể}
-
-Mọi phương pháp tensor network hiện đại đều \highlight{bắt nguồn} từ MPS.
-
-\vspace{6pt}
-\begin{tikzpicture}[
-  box/.style={rounded corners=4pt, minimum width=2.8cm, minimum height=1cm, align=center, font=\small\bfseries},
-  arr/.style={-{Stealth[length=5pt]}, thick, color=dimtext},
-  scale=0.92, transform shape
-]
-  \node[box, fill=qcyan!20, text=qcyan] (mps) at (0,0) {MPS\\[-2pt]{\tiny $S \sim O(1)$, P}};
-  \node[box, fill=qpurple!20, text=qpurple] (mera) at (4,1.2) {MERA\\[-2pt]{\tiny $S \sim \log L$}};
-  \node[box, fill=qgreen!20, text=qgreen] (iso) at (4,-1.2) {isoTNS\\[-2pt]{\tiny BQP-complete}};
-  \node[box, fill=qpink!20, text=qpink] (peps) at (8,0) {PEPS\\[-2pt]{\tiny $S \sim L^{d-1}$, \#P-hard}};
-  \node[box, fill=qamber!20, text=qamber] (nqs) at (12,0) {NQS\\[-2pt]{\tiny $S \sim$ volume}};
-
-  \draw[arr] (mps) -- node[above, font=\tiny, text=dimtext]{critical} (mera);
-  \draw[arr] (mps) -- node[below, font=\tiny, text=dimtext]{2D iso} (iso);
-  \draw[arr] (mera) -- node[above, font=\tiny, text=dimtext]{2D} (peps);
-  \draw[arr] (iso) -- (peps);
-  \draw[arr] (peps) -- node[above, font=\tiny, text=dimtext]{hybrid} (nqs);
-\end{tikzpicture}
-
-
-\vspace{2pt}
-Đi từ trái sang phải: \highlight{entanglement tăng}, \warn{complexity tăng}, nhưng khả năng biểu diễn mạnh hơn.
-
-\end{frame}
-
-
-
-
-% ══════════════════════════════════════
-% 1. MERA
-% ══════════════════════════════════════
-\begin{frame}{MERA — Vướng víu logarithmic}
-
-{\small Hệ tới hạn: $S(L)\sim\frac{c}{3}\log L$ — MPS cần $D\to\infty$.
-Vidal (2007): xen \highlight{disentangler} $U$ trước mỗi bước thô hóa isometry $W$:}
-\vspace{-2pt}
-\eqn{\ket{\psi_{\text{MERA}}} = \Bigl(\prod_{\tau} U_\tau W_\tau\Bigr)\ket{0}^{\otimes N}}
-\vspace{-4pt}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item $U$ loại bỏ vướng víu tầm ngắn trước khi coarse-grain
-    \item Nón nhân quả $O(\log N)$ tensor — tính quan sát cục bộ hiệu quả
-    \item Bắt được entropy logarithmic với $D$ hữu hạn
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item Trích xuất $\Delta$, $c$ của CFT từ siêu toán tử chuyển
-    \item MERA $\leftrightarrow$ AdS/CFT: hình học hyperbolic tự nhiên
-    \item Thực nghiệm: Trotterized MERA trên Quantinuum H1 (2023)
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Chi phí $O(\chi^8)$ mỗi vòng quét — đắt hơn DMRG nhiều lần
-    \item Khó mở rộng sang 2D
-    \item Tối ưu hóa không ổn định với $\chi$ lớn
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 2. PEPS
-% ══════════════════════════════════════
-\begin{frame}{PEPS — Tensor network 2D}
-
-{\small Mỗi tensor rank-5: $T^{s}_{l,r,u,d}$. Biểu diễn được \highlight{định luật diện tích 2D}: $S \leq |\partial A|\log D$.}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item Mở rộng cấu trúc MPS sang mạng 2D tự nhiên
-    \item Biểu diễn chính xác trật tự tôpô: toric code, string-net qua $G$-injective PEPS
-    \item Fermion 2D qua fPEPS (Corboz)
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item Co rút xấp xỉ boundary MPS: $O(\chi_{\text{env}}^3 D^4)$
-    \item AD-based iPEPS (2024): tự vi phân, tối ưu hóa tự động
-    \item Mô phỏng Hubbard 2D vượt QMC về dấu
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Co rút chính xác: \warn{\#P-khó} — mọi tính toán đều xấp xỉ
-    \item Lỗi co rút khó kiểm soát, khó ước lượng sai số
-    \item Tối ưu hóa kém ổn định hơn MPS
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 3. HYBRID MPS+NQS
-% ══════════════════════════════════════
-
-\begin{frame}{Hybrid MPS + NQS}
-
-{\small MPS: cấu trúc rõ, nhưng bị chặn entanglement. NQS: linh hoạt, nhưng thiếu cấu trúc. Kết hợp:}
-\vspace{-2pt}
-\eqn{\psi(\mathbf{s}) = \underbrace{\bra{L}A^{s_1}\cdots A^{s_N}\ket{R}}_{\text{khung xương MPS}}\;\cdot\;\underbrace{f_\theta(\mathbf{s})}_{\text{hiệu chỉnh neural}}}
-\vspace{-4pt}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item Mạng neural hiệu chỉnh phần vướng víu mà MPS bỏ sót
-    \item Phân cấp chặt: MPS $\subsetneq$ PEPS $\subsetneq$ Deep NQS
-    \item Born machine: sampling chính xác $O(ND^2d)$
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item ANTN (NeurIPS 2023): sai số $<10^{-4}$ cho hệ frustrated
-    \item Neuralized fermionic TN (2026): vượt fPEPS trên Hubbard 2D
-    \item Sampling tự hồi quy không cần MCMC
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Mất tính diễn giải của cấu trúc tensor
-    \item Huấn luyện không ổn định, dễ gặp cực tiểu địa phương
-    \item Khó kiểm soát và định lượng sai số
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 4. ISOMETRIC TN
-% ══════════════════════════════════════
-
-\begin{frame}{Isometric TN — Ràng buộc mở ra hai kết quả lớn}
-
-{\small PEPS + ràng buộc isometric $\sum_s A^{s\dagger}A^s=\mathbb{I}$ theo một hướng $\Rightarrow$ co rút hiệu quả (Zaletel--Pollmann 2020).}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item Ràng buộc isometric giữ nguyên norm khi co rút một chiều
-    \item Mở rộng được sang 2D mà vẫn tính được quan sát
-    \item Biểu diễn chính xác string-net liquid
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item Co rút khả thi — không cần xấp xỉ như PEPS
-    \item \good{Không có barren plateau} (Barthel--Miao 2024): $\operatorname{Var}(\partial_\theta E)\geq\Omega\!\left(\frac{1}{\mathrm{poly}(N)}\right)$
-    \item Áp dụng cho mọi isoTN: MPS, TTNS, MERA
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Tính quan sát isoTNS: \warn{BQP-complete} (Malz--Trivedi 2025)
-    \item Khả năng biểu diễn kém hơn PEPS đầy đủ
-    \item Ràng buộc isometric khó duy trì trong tối ưu hóa
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 5. QUANTUM HARDWARE
-% ══════════════════════════════════════
-
-\begin{frame}{MPS trên phần cứng lượng tử}
-
-{\small Chuẩn bị $\ket{\psi_\text{MPS}}$ trên chip — ba thế hệ giải pháp:}
+\begin{frame}[shrink=8]{Các biến thể tensor network}
 
 \vspace{4pt}
-\begin{center}\small
-\begin{tabular}{@{}lccl@{}}
-  \toprule
-  \textbf{Giao thức} & \textbf{Độ sâu} & \textbf{Ancilla} & \textbf{Cơ chế} \\
-  \midrule
-  Sequential (Schön 2005) & $O(N)$ & $\lceil\log_2 D\rceil$ & tuần tự, đơn giản \\
-  \good{Log-depth} (Malz 2024) & $O(\log N)$ & $O(N)$ & CNOT fan-out + đo giữa mạch \\
-  \good{Constant-depth} (Smith 2024) & $O(1)$ & $O(N)$ & dịch chuyển lượng tử, feedforward \\
-  \bottomrule
-\end{tabular}
+\begin{tikzpicture}[
+  box/.style={rounded corners=4pt, minimum width=2.6cm, minimum height=0.9cm, align=center, font=\small\bfseries},
+  arr/.style={-{Stealth[length=5pt]}, thick, color=dimtext},
+  cat/.style={font=\footnotesize\bfseries, rounded corners=3pt, inner sep=4pt},
+  scale=0.88, transform shape
+]
+  % MPS center
+  \node[box, fill=qcyan!20, draw=qcyan, text=qcyan] (mps) at (0,0) {MPS\\[-2pt]{\tiny 1D, $S\sim O(1)$}};
+
+  % Category labels
+  \node[cat, fill=qpurple!10, text=qpurple] at (7, 2.8) {Biến thể không gian};
+  \node[cat, fill=qgreen!10, text=qgreen] at (7, -0.2) {Thuật toán thời gian};
+  \node[cat, fill=qamber!10, text=qamber] at (7, -2.8) {Mở rộng \& ứng dụng};
+
+  % Spatial variants
+  \node[box, fill=qpurple!15, text=qpurple] (mera) at (4.5,3.5) {MERA\\[-2pt]{\tiny $S\sim\log L$}};
+  \node[box, fill=qpink!15, text=qpink] (peps) at (9.5,3.5) {PEPS\\[-2pt]{\tiny 2D, \#P-khó}};
+  \node[box, fill=qgreen!15, text=qgreen] (iso) at (9.5,1.8) {isoTNS\\[-2pt]{\tiny 2D, BQP-c}};
+  \node[box, fill=qamber!15, text=qamber] (nqs) at (14,3.5) {Hybrid NQS\\[-2pt]{\tiny $S\sim$ volume}};
+
+  \draw[arr] (mps) -- (mera);
+  \draw[arr] (mps) -- (iso);
+  \draw[arr] (mera) -- (peps);
+  \draw[arr] (iso) -- (peps);
+  \draw[arr] (peps) -- (nqs);
+
+  % Time algorithms
+  \node[box, fill=qgreen!15, draw=qgreen, text=qgreen] (tebd) at (4.5,0.3) {TEBD\\[-2pt]{\tiny Trotter + SVD}};
+  \node[box, fill=qgreen!15, draw=qgreen, text=qgreen] (tdvp) at (9.5,0.3) {TDVP\\[-2pt]{\tiny chiếu đa tạp}};
+
+  \draw[arr, qgreen] (mps) -- (tebd);
+  \draw[arr, qgreen] (tebd) -- (tdvp);
+
+  % Extensions
+  \node[box, fill=qamber!12, draw=qamber, text=qamber] (imps) at (4.5,-2.0) {iMPS\\[-2pt]{\tiny vô hạn}};
+  \node[box, fill=qamber!12, draw=qamber, text=qamber] (ferm) at (9.5,-2.0) {Fermion\\[-2pt]{\tiny đối xứng}};
+  \node[box, fill=qamber!12, draw=qamber, text=qamber] (cmps) at (9.5,-3.5) {cMPS\\[-2pt]{\tiny liên tục}};
+  \node[box, fill=qamber!12, draw=qamber, text=qamber] (hw) at (14,-2.0) {Phần cứng\\[-2pt]{\tiny \& Học máy}};
+
+  \draw[arr, qamber] (mps) -- (imps);
+  \draw[arr, qamber] (mps.south) to[out=-20, in=180] (ferm.west);
+  \draw[arr, qamber] (imps) -- (cmps);
+  \draw[arr, qamber] (ferm) -- (hw);
+\end{tikzpicture}
+
+\vspace{4pt}
+{\small Ba hướng phát triển từ MPS: \textcolor{qpurple}{\textbf{mở rộng không gian}} (entanglement mạnh hơn), \textcolor{qgreen}{\textbf{thuật toán thời gian}} (động lực học), \textcolor{qamber}{\textbf{mở rộng chuyên biệt}} (vô hạn, fermion, liên tục, ứng dụng).}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% BRIDGE: Giới hạn → Biến thể
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Giới hạn và biến thể tương ứng}
+
+\vspace{6pt}
+\begin{center}
+{\small
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{@{}l@{\quad$\longrightarrow$\quad}l@{}}
+\toprule
+\textbf{Giới hạn của MPS} & \textbf{Biến thể giải quyết} \\
+\midrule
+Entanglement logarithmic (hệ tới hạn) & \textcolor{qpurple}{\textbf{MERA}} \\
+Cấu trúc thuần túy 1D & \textcolor{qpink}{\textbf{PEPS}}, \textcolor{qgreen}{\textbf{isoTNS}} \\
+Co rút \#P-khó ở 2D & \textcolor{qgreen}{\textbf{isoTNS}} \\
+Entanglement cao / hệ thất vọng & \textcolor{qamber}{\textbf{Hybrid MPS+NQS}} \\
+Bức tường thời gian $S(t)\sim\alpha t$ & \textcolor{qgreen}{\textbf{TEBD}}, \textcolor{qgreen}{\textbf{TDVP}} {\footnotesize (giảm nhẹ, không triệt để)} \\
+Hệ vô hạn đồng nhất & \textcolor{qamber}{\textbf{iMPS}} \\
+Dấu Fermion trong 2D & \textcolor{qpink}{\textbf{fPEPS}}, \textcolor{qamber}{\textbf{Fermionic MPS}} \\
+\bottomrule
+\end{tabular}}
 \end{center}
 
+\vspace{6pt}
+{\small Ta sẽ đi qua ba nhóm: \textcolor{qpurple}{biến thể không gian} $\to$ \textcolor{qgreen}{thuật toán thời gian} $\to$ \textcolor{qamber}{mở rộng chuyên biệt}.}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% NHÓM 1: BIẾN THỂ KHÔNG GIAN
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{MERA}
+
+\begin{columns}[T]
+\begin{column}{0.42\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.65, transform shape,
+  site/.style={circle, draw=qcyan, fill=qcyan!15, minimum size=0.35cm, inner sep=0pt},
+  dis/.style={rectangle, draw=qpurple, fill=qpurple!15, minimum width=0.7cm, minimum height=0.35cm, rounded corners=2pt},
+  iso/.style={regular polygon, regular polygon sides=3, draw=qgreen, fill=qgreen!15, minimum size=0.5cm, inner sep=0pt}
+]
+  % Layer 0: 8 sites
+  \foreach \i in {1,...,8} {
+    \node[site] (s\i) at (\i*0.9, 0) {};
+  }
+
+  % Disentanglers layer 1
+  \foreach \i/\j in {2/3, 4/5, 6/7} {
+    \node[dis] (d1\i) at ({(\i*0.9+\j*0.9)/2}, 0.8) {};
+    \draw[dimtext, thick] (s\i) -- (d1\i);
+    \draw[dimtext, thick] (s\j) -- (d1\i);
+  }
+
+  % Isometries layer 1
+  \foreach \i/\j/\k in {1/2/1, 3/4/2, 5/6/3, 7/8/4} {
+    \node[iso] (w1\k) at ({(\i*0.9+\j*0.9)/2}, 1.6) {};
+    \draw[dimtext, thick] (s\i) -- (w1\k);
+    \draw[dimtext, thick] (s\j) -- (w1\k);
+  }
+
+  % Layer 1: 4 sites
+  \foreach \k in {1,...,4} {
+    \node[site, fill=qcyan!30] (t\k) at ({(\k*2-0.5)*0.9}, 2.4) {};
+    \draw[dimtext, thick] (w1\k) -- (t\k);
+  }
+
+  % Disentanglers layer 2
+  \node[dis] (d2a) at ({(2*0.9+3*0.9)}, 3.1) {};
+  \draw[dimtext, thick] (t2) -- (d2a);
+  \draw[dimtext, thick] (t3) -- (d2a);
+
+  % Isometries layer 2
+  \node[iso] (w2a) at ({(1.5*0.9+2.5*0.9)/1.1}, 3.8) {};
+  \node[iso] (w2b) at ({(3.5*0.9+4.5*0.9)/1.1+0.5}, 3.8) {};
+  \draw[dimtext, thick] (t1) -- (w2a);
+  \draw[dimtext, thick] (t2) -- (w2a);
+  \draw[dimtext, thick] (t3) -- (w2b);
+  \draw[dimtext, thick] (t4) -- (w2b);
+
+  % Top
+  \node[site, fill=qcyan!50] (top1) at (2.7, 4.6) {};
+  \node[site, fill=qcyan!50] (top2) at (5.1, 4.6) {};
+  \draw[dimtext, thick] (w2a) -- (top1);
+  \draw[dimtext, thick] (w2b) -- (top2);
+
+  % Labels
+  \node[font=\tiny, text=qpurple] at (9.2, 0.8) {$U$: disentangler};
+  \node[font=\tiny, text=qgreen] at (9.2, 1.6) {$W$: isometry};
+  \node[font=\tiny, text=dimtext] at (9.2, 3.2) {$O(\log N)$ tầng};
+\end{tikzpicture}
+\end{center}
+
+\end{column}
+\begin{column}{0.55\textwidth}
+
+\textcolor{qpurple}{\textbf{Ý tưởng}} (Vidal, 2007)\\[3pt]
+{\small Hệ tới hạn: $S \sim \frac{c}{3}\log L$ — MPS cần $D\to\infty$.
+
+\vspace{3pt}
+MERA xen \textbf{disentangler} $U$ (loại bỏ vướng víu tầm ngắn) trước mỗi bước \textbf{thô hóa} $W$ (gộp 2 site $\to$ 1):}
+\eqn{\ket{\psi_{\text{MERA}}} = \Bigl(\prod_{\tau} U_\tau W_\tau\Bigr)\ket{0}^{\otimes N}}
+
+\vspace{2pt}
+{\small
+\begin{itemize}
+  \item Nón nhân quả chỉ $O(\log N)$ tensor $\Rightarrow$ tính quan sát cục bộ nhanh
+  \item Bắt được entropy $\log$ với $D$ hữu hạn
+  \item Liên hệ AdS/CFT: hình học hyperbolic
+\end{itemize}}
+
+\vspace{4pt}
+\textcolor{qpink}{\textbf{Hạn chế:}} {\small chi phí $O(\chi^8)$/vòng quét — đắt hơn DMRG rất nhiều.}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% PEPS
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{PEPS}
+
+\begin{columns}[T]
+\begin{column}{0.40\textwidth}
+
+\vspace{4pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.75, transform shape,
+  site/.style={circle, draw=qpink, fill=qpink!15, minimum size=0.55cm, inner sep=0pt, font=\tiny\bfseries}
+]
+  % 3x3 grid
+  \foreach \x in {0,...,2} {
+    \foreach \y in {0,...,2} {
+      \node[site] (g\x\y) at (\x*1.4, \y*1.4) {};
+    }
+  }
+  % Horizontal bonds
+  \foreach \y in {0,...,2} {
+    \draw[qpink, thick] (g0\y) -- (g1\y) -- (g2\y);
+  }
+  % Vertical bonds
+  \foreach \x in {0,...,2} {
+    \draw[qpink, thick] (g\x0) -- (g\x1) -- (g\x2);
+  }
+  % Physical indices (downward)
+  \foreach \x in {0,...,2} {
+    \foreach \y in {0,...,2} {
+      \draw[qpurple, thick] (g\x\y) -- ++(0, -0.5);
+    }
+  }
+
+  % Labels
+  \node[font=\tiny, text=qpink] at (1.4, -0.8) {bond: $D$};
+  \node[font=\tiny, text=qpurple] at (3.2, -0.5) {$s_i$};
+
+  % Compare with MPS
+  \node[font=\small\bfseries, text=dimtext] at (1.4, -1.5) {vs.\ MPS:};
+  \foreach \i in {0,...,4} {
+    \fill[qcyan] (\i*0.6, -2.2) circle (3pt);
+  }
+  \draw[qcyan, thick] (0,-2.2) -- (2.4,-2.2);
+\end{tikzpicture}
+\end{center}
+
+\end{column}
+\begin{column}{0.57\textwidth}
+
+\textcolor{qpink}{\textbf{Từ chuỗi sang lưới}}\\[3pt]
+{\small Mỗi tensor có 5 chỉ số: $T^{s}_{l,r,u,d}$ (1 vật lý + 4 ảo).\\
+Tôn trọng area law 2D: $S \leq |\partial A|\log D$.}
+
+\vspace{6pt}
+{\small
+\begin{itemize}
+  \item Biểu diễn chính xác trật tự tôpô (toric code, string-net)
+  \item Fermion 2D: fPEPS (Corboz) — giải quyết giới hạn 6
+  \item iPEPS + autodiff (2024): tối ưu hóa tự động
+\end{itemize}}
+
+\vspace{6pt}
+\textcolor{qpink}{\textbf{Cái giá phải trả}}\\[3pt]
+{\small
+\begin{itemize}
+  \item Co rút chính xác: \warn{\#P-khó} — mọi tính toán đều xấp xỉ
+  \item Sai số co rút khó ước lượng
+  \item Tối ưu hóa kém ổn định hơn MPS
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% isoTNS
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Isometric tensor network}
+
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item $D=64$ chỉ cần 6 ancilla qubit ($\lceil\log_2 64\rceil$)
-    \item Thực nghiệm 2026: 100 qubit, $\chi=40$, độ trung thực $>97\%$ trên IBM
-  \end{itemize}
+
+\textcolor{qgreen}{\textbf{Ý tưởng}} (Zaletel--Pollmann, 2020)\\[3pt]
+{\small Thêm ràng buộc \textbf{isometric} vào PEPS:}
+\eqn{\sum_s A^{s\dagger}A^s = \mathbb{I}}
+{\small theo một hướng. Hệ quả:
+\begin{itemize}
+  \item Co rút \textbf{chính xác} — không cần xấp xỉ
+  \item Biểu diễn string-net liquid chính xác
+  \item Mở rộng sang 2D mà vẫn tính toán được
+\end{itemize}}
+
 \end{column}
 \begin{column}{0.48\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Constant-depth cần feedforward cổ điển thời gian thực — khó trên phần cứng hiện tại
-    \item Lỗi cổng tích lũy theo $N$, độ trung thực giảm nhanh
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
 
-% ══════════════════════════════════════
-% 6. TN FOR ML
-% ══════════════════════════════════════
+\textcolor{qgreen}{\textbf{Hai kết quả quan trọng}}
 
-\begin{frame}{Tensor Network cho Học máy}
+\vspace{6pt}
+{\small
+\good{\textbf{1. Không có barren plateau}} (Barthel--Miao 2024)\\[2pt]
+{\footnotesize Gradient không tắt theo hàm mũ:
+$\operatorname{Var}(\partial_\theta E)\geq\Omega(1/\mathrm{poly}(N))$.
+Áp dụng cho mọi isoTN: MPS, TTNS, MERA.}
 
-{\small Ánh xạ đặc trưng $\to$ MPS $\to$ quyết định (Stoudenmire--Schwab 2016):
-$f(\mathbf{x}) = \bra{\psi_W}\bigotimes_i\ket{\Phi(x_i)}$, với $\ket{\Phi(x)}=\cos\tfrac{\pi x}{2}\ket{0}+\sin\tfrac{\pi x}{2}\ket{1}$.}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item Tham số ít, cấu trúc rõ, có thể diễn giải qua phổ vướng víu
-    \item Bond dimension kiểm soát trực tiếp độ phức tạp mô hình
-    \item Born machine: sinh mẫu chính xác, không cần MCMC
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item MNIST: $>99\%$ độ chính xác với bond dimension nhỏ
-    \item CompactifAI (2024): nén LLaMA-2 7B bằng MPO — giảm \textbf{93\%} bộ nhớ
-    \item TT-decomposition: giảm $1000\times$ tham số tầng kết nối đầy đủ
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Cấu trúc 1D không tự nhiên với dữ liệu thực
-    \item Kém linh hoạt hơn mạng neural sâu trên dữ liệu phức tạp
-    \item Nén mô hình có thể mất độ chính xác đáng kể
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 7. TIME-DEPENDENT
-% ══════════════════════════════════════
-
-\begin{frame}{Diễn tiến thời gian — TEBD vs TDVP}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}\\[2pt]
-  {\small \textbf{TEBD} (Vidal 2003): Trotter phân rã $e^{-iH\delta t}$, mỗi cổng áp lên bond rồi cắt bớt SVD.}\\[4pt]
-  {\small \textbf{TDVP} (Haegeman 2011): chiếu Schrödinger lên không gian tiếp tuyến $\mathcal{M}_D$:}
-  \vspace{-2pt}
-  \eqn{i\partial_t\ket{\psi}=\hat{P}_{T_{\ket{\psi}}\mathcal{M}}H\ket{\psi}}
-  \vspace{-6pt}
-  {\small 1TDVP bảo toàn năng lượng; 2TDVP cho $D$ thích ứng.}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item TDVP: không lỗi Trotter, bảo toàn các đại lượng bảo toàn
-    \item TEBD: đơn giản, song song hóa tốt
-    \item Chi phí $O(ND^3d^3)$ — cạnh tranh cho hệ 1D
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế cơ bản}}
-  \begin{itemize}\small
-    \item Sau sự thay đổi đột ngột của tham số Hamiltonian: $S(t)\sim\alpha t\Rightarrow D(t)\sim e^{\alpha t}$
-    \item MPS \warn{thất bại} sau $t^*\sim\frac{\log D}{\alpha}$
-    \item Hướng mở: influence functional, temporal entanglement
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 8. iMPS
-% ══════════════════════════════════════
-
-\begin{frame}{MPS vô hạn đồng nhất (iMPS)}
-
-{\small MPS đồng nhất: $\cdots A^{s_{-1}}A^{s_0}A^{s_1}\cdots$ — cùng một tensor $A$ lặp lại. Không cần giới hạn hệ hữu hạn.}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item Nhiệt động lực học chính xác không có sai số finite-size
-    \item Transfer matrix $\mathbb{T}=\sum_s A^s\otimes\bar{A}^s$: độ dài tương quan $\xi=-1/\ln|\lambda_2|$
-    \item Quasiparticle ansatz cho kích thích: $\ket{\Phi_p(B)}=\sum_n e^{ipn}\cdots B^{s_n}\cdots$
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item VUMPS (2018): hội tụ nhanh hơn iDMRG đáng kể
-    \item Tính dispersion $E(p)$ và ma trận S từ ansatz quasiparticle
-    \item Fixed-point: $A_C = CA_R = A_LC$ — canonical form rõ ràng
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Chỉ áp dụng cho hệ đồng nhất (translation invariant)
-    \item Chuyển pha: cần cẩn thận về vỡ đối xứng tự phát
-    \item Không trực tiếp mô phỏng biên và tạp chất
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 9. FERMIONIC & SYMMETRIC
-% ══════════════════════════════════════
-
-\begin{frame}{MPS Fermionic \& Đối xứng}
-
-{\small Khai thác đối xứng trong cấu trúc tensor để giảm chi phí tính toán theo hàm mũ.}
-
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item Fermion: đại số $\mathbb{Z}_2$-graded, $a\otimes b\to(-1)^{|a||b|}b\otimes a$ — không cần chuỗi Jordan--Wigner tường minh
-    \item U(1): $[Q,H]=0\Rightarrow$ tensor block-diagonal
-    \item SU(2): Wigner--Eckart — chỉ lưu phần tử rút gọn
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item U(1): tăng tốc $\sim Q^2$ lần
-    \item SU(2): thêm $\bar{d}^3$ lần — tổng hợp rất lớn
-    \item Đọc trực tiếp tham số trật tự SPT từ biểu diễn chiếu trên chỉ số ảo
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item Chuỗi Jordan--Wigner vẫn phá tính cục bộ trong 2D
-    \item Non-Abelian phức tạp khi lập trình, dễ sai
-    \item Đối xứng không khả nghịch (2026) vẫn là hướng mở
-  \end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ══════════════════════════════════════
-% 10. cMPS
-% ══════════════════════════════════════
-
-\begin{frame}{cMPS — MPS trong giới hạn liên tục}
-
-{\small Giới hạn liên tục của MPS: thay tensor rời rạc bằng ma trận $Q,R_\alpha\in M_D(\mathbb{C})$ phụ thuộc vị trí:}
-\vspace{-4pt}
-\eqn{
-  \ket{\psi_{\text{cMPS}}} = \operatorname{Tr}_{\text{aux}}\!\left[\mathcal{P}\exp\!\int_0^L\!\mathrm{d}x\,\Bigl(Q\otimes\mathbb{I}+\sum_\alpha R_\alpha\otimes\hat{\psi}^\dagger_\alpha(x)\Bigr)\right]\ket{\Omega}
+\vspace{8pt}
+\warn{\textbf{2. BQP-complete}} (Malz--Trivedi 2025)\\[2pt]
+{\footnotesize Tính quan sát isoTNS khó bằng mọi bài toán máy lượng tử giải được. Đổi lại: máy lượng tử có thể co rút nhanh.}
 }
-\vspace{-6pt}
 
-\begin{columns}[T]
-\begin{column}{0.34\textwidth}
-  \textcolor{qcyan}{\textbf{Cải tiến cốt lõi}}
-  \begin{itemize}\small
-    \item Biểu diễn trực tiếp trạng thái trường lượng tử — không cần mạng tinh thể
-    \item Bất biến gauge: $Q\to GQG^{-1}+(\partial G)G^{-1}$
-    \item RCMPS (Tilloy 2021): thỏa mãn mọi tiên đề Feynman, không cần cutoff UV
-  \end{itemize}
-\end{column}
-\begin{column}{0.32\textwidth}
-  \textcolor{qgreen}{\textbf{Hiệu quả}}
-  \begin{itemize}\small
-    \item Lieb--Liniger: độ chính xác $\sim10^{-6}$ với $D\approx64$
-    \item cMERA: nhóm tái chuẩn hóa vướng víu liên tục $\leftrightarrow$ holographic RG
-    \item Tính toán non-perturbative cho QFT 1+1D
-  \end{itemize}
-\end{column}
-\begin{column}{0.30\textwidth}
-  \textcolor{qpink}{\textbf{Hạn chế}}
-  \begin{itemize}\small
-    \item cPEPS cho QFT 2+1D vẫn là bài toán mở
-    \item Tối ưu hóa phức tạp hơn MPS rời rạc
-    \item Chưa có ứng dụng thực tiễn ngoài 1+1D
-  \end{itemize}
 \end{column}
 \end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% Hybrid MPS + NQS
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{MPS + Neural quantum states}
+
+{\small MPS cho khung xương cấu trúc, mạng neural bổ sung phần vướng víu bị bỏ sót:}
+\vspace{-2pt}
+\eqn{\psi(\mathbf{s}) = \underbrace{\bra{L}A^{s_1}\cdots A^{s_N}\ket{R}}_{\text{MPS}}\;\cdot\;\underbrace{f_\theta(\mathbf{s})}_{\text{neural}}}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textcolor{qgreen}{\textbf{Ưu điểm}}
+{\small
+\begin{itemize}
+  \item Phân cấp: MPS $\subsetneq$ PEPS $\subsetneq$ Deep NQS
+  \item ANTN (NeurIPS 2023): sai số $<10^{-4}$ cho hệ frustrated
+  \item Sampling tự hồi quy — không cần MCMC
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textcolor{qpink}{\textbf{Đánh đổi}}
+{\small
+\begin{itemize}
+  \item Mất tính diễn giải của cấu trúc tensor
+  \item Huấn luyện không ổn định, cực tiểu địa phương
+  \item Khó định lượng sai số — mạng neural là ``hộp đen''
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% BRIDGE: Thuật toán thời gian
+% ══════════════════════════════════════
+\begin{frame}{Động lực học trên MPS}
+
+\vspace{14pt}
+\begin{center}
+{\large Các biến thể không gian mở rộng \textit{phạm vi} của MPS.\\[8pt]
+Hai thuật toán chính cho \textit{động lực học}: TEBD và TDVP.}
+\end{center}
+
+\vspace{14pt}
+{\small\textcolor{dimtext}{Cả hai đều giữ cấu trúc MPS nhưng tiến hóa trạng thái theo thời gian: $\ket{\psi(0)} \to \ket{\psi(t)}$.}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% TEBD
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=3]{TEBD}
+
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+
+{\small Vidal (2003): phân rã toán tử thời gian bằng công thức Trotter:}
+\eqn{e^{-iH\delta t} \approx \prod_{\langle i,j\rangle} e^{-i h_{ij}\delta t}}
+
+{\small Mỗi cổng chỉ tác dụng lên 2 site — áp dụng rồi cắt bớt bằng SVD.}
+
+\vspace{6pt}
+{\small
+\begin{itemize}
+  \item Đơn giản, dễ cài đặt
+  \item Song song hóa tốt (cổng chẵn/lẻ độc lập)
+  \item Sai số Trotter $O(\delta t^2)$ hoặc $O(\delta t^3)$
+  \item Chi phí: $O(ND^3 d^3)$ mỗi bước
+\end{itemize}}
+
+\vspace{4pt}
+{\small\textcolor{dimtext}{\textbf{Vật lý:} toán tử thời gian. \textbf{Toán:} Trotter-Suzuki. \textbf{KHMT:} cổng cục bộ + SVD.}}
+
+\end{column}
+\begin{column}{0.52\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.75, transform shape,
+  site/.style={circle, draw=qcyan, fill=qcyan!15, minimum size=0.45cm, inner sep=0pt, font=\tiny\bfseries},
+  gate/.style={draw=qpurple, fill=qpurple!12, rounded corners=2pt, minimum width=1.2cm, minimum height=0.5cm, font=\tiny}
+]
+  \foreach \i in {1,...,6} {
+    \node[site] (s\i) at (\i*1.1, 0) {\i};
+  }
+
+  \foreach \i/\j in {1/2, 3/4, 5/6} {
+    \node[gate, fill=qpurple!12] at ({(\i*1.1+\j*1.1)/2}, 0.9) {};
+  }
+  \node[font=\tiny, text=qpurple, right] at (7, 0.9) {lớp chẵn};
+
+  \foreach \i/\j in {2/3, 4/5} {
+    \node[gate, fill=qgreen!12, draw=qgreen] at ({(\i*1.1+\j*1.1)/2}, 1.7) {};
+  }
+  \node[font=\tiny, text=qgreen, right] at (7, 1.7) {lớp lẻ};
+
+  \foreach \i/\j in {1/2, 3/4, 5/6} {
+    \node[gate, fill=qpurple!12] at ({(\i*1.1+\j*1.1)/2}, 2.5) {};
+  }
+
+  \draw[-{Stealth}, thick, qamber] (0.3, 0) -- (0.3, 3.0);
+  \node[font=\tiny, text=qamber, rotate=90] at (0.0, 1.5) {thời gian};
+\end{tikzpicture}
+\end{center}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% TEBD — Code
+% ══════════════════════════════════════
+\begin{frame}[fragile, shrink=3]{TEBD --- cài đặt}
+
+\begin{lstlisting}
+def tebd_step(mps, H_bonds, dt, D_max):
+    """One second-order Trotter step."""
+    N = len(mps)
+    # Even bonds: (0,1), (2,3), ...
+    for i in range(0, N-1, 2):
+        gate = expm(-1j * H_bonds[i] * dt / 2)  # d^2 x d^2
+        apply_two_site_gate(mps, gate, i, D_max)
+    # Odd bonds: (1,2), (3,4), ...
+    for i in range(1, N-1, 2):
+        gate = expm(-1j * H_bonds[i] * dt)
+        apply_two_site_gate(mps, gate, i, D_max)
+    # Even bonds again (symmetric Trotter)
+    for i in range(0, N-1, 2):
+        gate = expm(-1j * H_bonds[i] * dt / 2)
+        apply_two_site_gate(mps, gate, i, D_max)
+\end{lstlisting}
+
+\vspace{4pt}
+{\small\textcolor{dimtext}{\texttt{apply\_two\_site\_gate}: co rút 2 tensor liền kề $\to$ áp gate $\to$ SVD tách lại + truncate tại $D_\text{max}$. Sai số mỗi bước: $O(\delta t^3)$ (Trotter bậc 2).}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% TDVP
+% ══════════════════════════════════════
+\begin{frame}{TDVP cho động lực học}
+
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+
+{\small Haegeman (2011): thay vì phân rã Trotter, chiếu phương trình Schrödinger lên đa tạp MPS:}
+\eqn{i\partial_t\ket{\psi}=\hat{P}_{T_{\ket{\psi}}\mathcal{M}}H\ket{\psi}}
+
+\vspace{4pt}
+{\small
+\begin{itemize}
+  \item \textbf{Không có sai số Trotter} — chính xác hơn TEBD
+  \item \textbf{1TDVP}: $D$ cố định, bảo toàn năng lượng chính xác
+  \item \textbf{2TDVP}: $D$ thích ứng, linh hoạt hơn
+  \item Chi phí tương đương TEBD: $O(ND^3 d^3)$
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.47\textwidth}
+
+\vspace{6pt}
+{\small
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+& \textbf{TEBD} & \textbf{TDVP} \\
+\midrule
+Sai số Trotter & có & \good{không} \\
+Bảo toàn $E$ & xấp xỉ & \good{chính xác} \\
+$D$ thích ứng & không & \good{có (2TDVP)} \\
+Cài đặt & đơn giản & phức tạp hơn \\
+Song song & \good{tốt} & kém hơn \\
+\bottomrule
+\end{tabular}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% Giới hạn cơ bản thời gian
+% ══════════════════════════════════════
+\begin{frame}[shrink=5]{Giới hạn thời gian mô phỏng}
+
+\vspace{4pt}
+{\small Cả TEBD và TDVP đều vấp phải cùng một bức tường:}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.85, transform shape]
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (8,0) node[right, font=\small] {$t$};
+  \draw[-{Stealth}, thick, color=dimtext] (0,0) -- (0,3.5) node[above, font=\small] {$S(t)$};
+
+  \draw[qpink, very thick] (0,0) -- (7,3);
+  \node[qpink, font=\small, right] at (7,3) {$S \sim \alpha t$};
+
+  \draw[qcyan, dashed, thick] (0,1.5) -- (8,1.5);
+  \node[qcyan, font=\small, left] at (0,1.5) {$\log D$};
+
+  \draw[qamber, thick, dashed] (3.5,0) -- (3.5,1.5);
+  \fill[qamber] (3.5,1.5) circle (3pt);
+  \node[qamber, font=\small\bfseries, below] at (3.5,0) {$t^* = \frac{\log D}{\alpha}$};
+
+  \fill[qgreen!15] (0,0) -- (3.5,0) -- (3.5,1.5) -- (0,0);
+  \fill[qpink!10] (3.5,0) rectangle (7.5,3.2);
+\end{tikzpicture}
+\end{center}
+
+\vspace{2pt}
+{\small Sau quench: $S(t) \sim \alpha t$ $\Rightarrow$ $D(t) \sim e^{\alpha t}$.\\
+Đây \textbf{không phải lỗi thuật toán} — mà là giới hạn cấu trúc của MPS. Không thuật toán nào trên MPS có thể vượt qua.}
+
+\vspace{4pt}
+{\small\textcolor{dimtext}{Hướng mở: influence functional (``tích phân ảnh hưởng'' — mô hình hóa môi trường thay vì hệ), temporal entanglement (vướng víu theo thời gian thay vì không gian).}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% BRIDGE: Mở rộng chuyên biệt
+% ══════════════════════════════════════
+\begin{frame}{Các mở rộng chuyên biệt}
+
+\vspace{14pt}
+\begin{center}
+{\large Ngoài biến thể không gian và thuật toán thời gian,\\[6pt]
+MPS còn được mở rộng theo ba hướng chuyên biệt:}
+\end{center}
+
+\vspace{14pt}
+{\small
+\begin{tabular}{@{}l@{\quad}l@{}}
+\textcolor{qamber}{\textbf{iMPS}} & hệ vô hạn đồng nhất — không cần biên \\[4pt]
+\textcolor{qamber}{\textbf{Fermionic \& đối xứng}} & khai thác cấu trúc đại số để tăng tốc \\[4pt]
+\textcolor{qamber}{\textbf{cMPS}} & giới hạn liên tục — lý thuyết trường lượng tử \\[4pt]
+\textcolor{qamber}{\textbf{Phần cứng \& Học máy}} & ứng dụng bên ngoài vật lý truyền thống \\
+\end{tabular}}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% iMPS
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{MPS vô hạn (iMPS)}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\vspace{2pt}
+\begin{center}
+\begin{tikzpicture}[scale=0.7, transform shape,
+  site/.style={circle, draw=qcyan, fill=qcyan!15, minimum size=0.5cm, inner sep=0pt, font=\tiny\bfseries}
+]
+  % Infinite chain
+  \node[font=\small, text=dimtext] at (-0.5, 0) {$\cdots$};
+  \foreach \i in {1,...,5} {
+    \node[site] (s\i) at (\i*1.0, 0) {$A$};
+  }
+  \node[font=\small, text=dimtext] at (6.0, 0) {$\cdots$};
+  \draw[thick, dimtext] (0, 0) -- (s1) -- (s2) -- (s3) -- (s4) -- (s5) -- (5.6, 0);
+
+  % Physical indices
+  \foreach \i in {1,...,5} {
+    \draw[qpurple, thick] (s\i) -- ++(0, -0.5);
+  }
+
+  % Label
+  \node[font=\small, text=qcyan] at (3, -1.2) {cùng một tensor $A$ lặp lại};
+\end{tikzpicture}
+\end{center}
+
+\vspace{6pt}
+{\small Không cần biên hữu hạn $\Rightarrow$ nhiệt động lực học chính xác.}
+
+\vspace{4pt}
+{\small
+\begin{itemize}
+  \item Transfer matrix $\mathbb{T}$: tính norm, tương quan
+  \item Độ dài tương quan: $\xi = -1/\ln|\lambda_2|$
+  \item VUMPS (2018): hội tụ nhanh hơn iDMRG
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textcolor{qcyan}{\textbf{Kích thích}}\\[3pt]
+{\small Ansatz quasiparticle — thay 1 tensor $A$ bằng $B$:}
+\eqn{\ket{\Phi_p(B)} = \sum_n e^{ipn}\!\cdots A\,B^{s_n}\!A\cdots}
+{\small Tính được quan hệ tán sắc $E(p)$ và ma trận tán xạ $S$.}
+
+\vspace{6pt}
+\textcolor{qpink}{\textbf{Hạn chế}}
+{\small
+\begin{itemize}
+  \item Chỉ cho hệ đồng nhất (translation invariant)
+  \item Chuyển pha: cần cẩn thận về vỡ đối xứng tự phát
+  \item Không mô phỏng biên hay tạp chất
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% Fermionic & Symmetric + cMPS
+% ══════════════════════════════════════
+\begin{frame}[shrink=3]{Fermionic MPS, đối xứng, cMPS}
+
+\begin{columns}[T]
+\begin{column}{0.32\textwidth}
+
+\textcolor{qamber}{\textbf{Fermionic MPS}}\\[3pt]
+{\small Đại số $\mathbb{Z}_2$-graded:
+$a\!\otimes\! b\to(-1)^{|a||b|}b\!\otimes\! a$
+
+\vspace{2pt}
+Không cần chuỗi JW tường minh ở 1D. Nhưng 2D vẫn khó (chuỗi dấu phá cục bộ).}
+
+\vspace{6pt}
+\textcolor{qamber}{\textbf{Đối xứng}}\\[3pt]
+{\small
+\begin{itemize}
+  \item U(1): tensor block-diagonal $\to$ tăng tốc $\sim Q^2$ lần
+  \item SU(2): Wigner--Eckart $\to$ thêm $\bar{d}^3$ lần
+  \item Đọc trật tự SPT trực tiếp
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.35\textwidth}
+
+\textcolor{qamber}{\textbf{cMPS — Giới hạn liên tục}}\\[3pt]
+{\small Thay tensor rời rạc bằng ma trận liên tục $Q(x), R_\alpha(x)$:}
+
+\vspace{2pt}
+{\footnotesize
+$\ket{\psi} = \operatorname{Tr}_{\text{aux}}\!\left[\mathcal{P}\exp\!\int_0^L\!\!\mathrm{d}x\,(\cdots)\right]\!\ket{\Omega}$}
+
+\vspace{4pt}
+{\small
+\begin{itemize}
+  \item Biểu diễn trạng thái trường — không cần mạng tinh thể
+  \item Lieb--Liniger: $\sim\!10^{-6}$ với $D\!=\!64$
+  \item Bất biến gauge tự nhiên
+  \item cMERA $\leftrightarrow$ holographic RG
+\end{itemize}}
+
+\end{column}
+\begin{column}{0.30\textwidth}
+
+\textcolor{qamber}{\textbf{Phần cứng lượng tử}}\\[3pt]
+{\small Ba thế hệ chuẩn bị MPS:
+\begin{itemize}
+  \item Sequential: $O(N)$ depth
+  \item Log-depth: $O(\log N)$
+  \item \good{Constant}: $O(1)$
+\end{itemize}
+2026: 100 qubit, $\chi\!=\!40$, $>97\%$ fidelity.}
+
+\vspace{6pt}
+\textcolor{qamber}{\textbf{Học máy}}\\[3pt]
+{\small
+\begin{itemize}
+  \item MNIST $>99\%$ accuracy
+  \item Nén LLaMA-2 7B: $-93\%$ bộ nhớ (CompactifAI)
+\end{itemize}}
+
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% BRIDGE: Ba trụ cột chung
+% ══════════════════════════════════════
+\begin{frame}{Ba câu hỏi nền tảng}
+
+\vspace{12pt}
+\begin{center}
+{\large Dù tensor network có nhiều biến thể,\\[4pt]
+ba câu hỏi nền tảng luôn quay lại:}
+
+\vspace{16pt}
+\begin{tikzpicture}[
+  pillar/.style={rounded corners=6pt, minimum width=3.8cm, minimum height=1.6cm, align=center, font=\small\bfseries},
+  scale=0.95, transform shape
+]
+  \node[pillar, fill=qcyan!15, draw=qcyan, text=qcyan] (train) at (0,0) {Huấn luyện\\[-2pt]{\footnotesize\normalfont Tối ưu hóa có hội tụ?}};
+  \node[pillar, fill=qpurple!15, draw=qpurple, text=qpurple] (prep) at (5.5,0) {Chuẩn bị\\[-2pt]{\footnotesize\normalfont Tạo trạng thái trên chip?}};
+  \node[pillar, fill=qgreen!15, draw=qgreen, text=qgreen] (comp) at (11,0) {Độ phức tạp\\[-2pt]{\footnotesize\normalfont Tính toán có khả thi?}};
+\end{tikzpicture}
+\end{center}
+
+\vspace{12pt}
+{\small\textcolor{dimtext}{Các kết quả gần đây (2024--2025) đã đưa ra câu trả lời bất ngờ cho cả ba câu hỏi này.}}
+
 \end{frame}
 
 % ══════════════════════════════════════
 % UNIFYING RESULTS
 % ══════════════════════════════════════
-\begin{frame}[shrink=8]{Ba kết quả xuyên suốt}
+\begin{frame}[shrink=8]{Kết quả gần đây (2024--2025)}
 
 \begin{columns}[T]
 \begin{column}{0.32\textwidth}
@@ -783,7 +2597,7 @@ $f(\mathbf{x}) = \bra{\psi_W}\bigotimes_i\ket{\Phi(x_i)}$, với $\ket{\Phi(x)}=
     MPS: \good{P}\\
     isoTNS: \warn{BQP-c}\\
     PEPS: \pink{\#P-hard}\\[4pt]
-    {\small Tham số: injectivity strength}
+    {\small Tham số: injectivity strength\\(tensor càng ``đầy đủ'' $\to$ bài toán càng khó)}
   \end{block}
 \end{column}
 \end{columns}
@@ -795,40 +2609,70 @@ $f(\mathbf{x}) = \bra{\psi_W}\bigotimes_i\ket{\Phi(x_i)}$, với $\ket{\Phi(x)}=
 \end{frame}
 
 % ══════════════════════════════════════
-% OPEN PROBLEMS
+% OPEN 1/3: Lý thuyết & Tính toán
 % ══════════════════════════════════════
-\begin{frame}[shrink=5]{Các vấn đề mở lớn}
+\begin{frame}[shrink=5]{Vấn đề mở: lý thuyết}
+
+\vspace{4pt}
+\textcolor{qpink}{\textbf{1. Sai số co rút PEPS}}\\[2pt]
+{\small Co rút PEPS là \#P-khó — nhưng xấp xỉ thì sai bao nhiêu? Hiện chưa có cận sai số nghiêm ngặt cho boundary MPS hay corner transfer matrix.}
+
+\vspace{10pt}
+\textcolor{qpink}{\textbf{2. Fermionic PEPS không vấn đề dấu}}\\[2pt]
+{\small fPEPS xử lý Fermion 2D, nhưng vấn đề dấu (sign problem) vẫn có thể xuất hiện trong quá trình co rút. Liệu có thiết kế fPEPS nào tránh hoàn toàn?}
+
+\vspace{10pt}
+\textcolor{qpink}{\textbf{3. Phá bức tường entanglement cho động lực học}}\\[2pt]
+{\small $S(t) \sim \alpha t$ là giới hạn cơ bản cho MPS. Influence functional và temporal entanglement đang là hướng tiếp cận — nhưng chưa có đột phá.}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% OPEN 2/3: Thực nghiệm
+% ══════════════════════════════════════
+\begin{frame}{Vấn đề mở: thực nghiệm}
+
+\vspace{8pt}
+\textcolor{qgreen}{\textbf{1. Chuẩn bị MPS trên chip $> 100$ qubit}}\\[2pt]
+{\small Các giao thức log-depth và constant-depth đã được chứng minh lý thuyết. Nhưng thực hiện trên phần cứng thật với error correction vẫn là thách thức lớn.}
+
+\vspace{12pt}
+\textcolor{qgreen}{\textbf{2. Quantum advantage cho co rút tensor network}}\\[2pt]
+{\small Co rút PEPS là \#P-khó trên máy tính cổ điển. Liệu máy tính lượng tử có thể co rút nhanh hơn? IsoTNS gợi ý là có (BQP-complete), nhưng cần chứng minh lợi thế thực tế.}
+
+\vspace{12pt}
+\textcolor{qgreen}{\textbf{3. Tensor network cho hiệu chuẩn nhiễu lượng tử}}\\[2pt]
+{\small Dùng MPS/MPO để mô hình hóa và sửa lỗi nhiễu tương quan trên chip lượng tử — hướng ứng dụng gần nhất.}
+
+\end{frame}
+
+% ══════════════════════════════════════
+% OPEN 3/3: Học máy & Lý thuyết trường
+% ══════════════════════════════════════
+\begin{frame}{Vấn đề mở: ML và QFT}
 
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
-  \textcolor{qpink}{\textbf{Lý thuyết \& Tính toán}}
-  \begin{itemize}
-    \item PEPS contraction: error bounds nghiêm ngặt?
-    \item Fermionic PEPS không sign problem?
-    \item Phá rào cản entanglement cho dynamics
-  \end{itemize}
 
-  \vspace{4pt}
-  \textcolor{qgreen}{\textbf{Thực nghiệm}}
-  \begin{itemize}
-    \item MPS preparation $> 100$ qubit, error-corrected
-    \item Quantum advantage cho TN contraction?
-  \end{itemize}
+\textcolor{qamber}{\textbf{Học máy}}\\[4pt]
+{\small
+\begin{itemize}
+  \item \textbf{TN cho transformers:} cấu trúc attention có thể biểu diễn dạng tensor không?
+  \item \textbf{Born machine:} sinh mẫu chính xác cho dữ liệu cao chiều
+  \item \textbf{Nén LLM:} từ MPO đến tensor network tổng quát — giảm tham số mà giữ chất lượng
+\end{itemize}}
+
 \end{column}
 \begin{column}{0.48\textwidth}
-  \textcolor{qamber}{\textbf{ML \& Ứng dụng}}
-  \begin{itemize}
-    \item TN architecture cho transformers?
-    \item Born machine cho dữ liệu cao chiều
-    \item Nén LLM: từ MPO đến TN tổng quát
-  \end{itemize}
 
-  \vspace{4pt}
-  \textcolor{qpurple}{\textbf{Lý thuyết trường}}
-  \begin{itemize}
-    \item cPEPS cho QFT 2+1D
-    \item Non-perturbative QCD qua TN
-  \end{itemize}
+\textcolor{qpurple}{\textbf{Lý thuyết trường lượng tử}}\\[4pt]
+{\small
+\begin{itemize}
+  \item \textbf{cPEPS cho QFT 2+1D:} mở rộng cMPS sang không gian cao hơn
+  \item \textbf{QCD phi nhiễu loạn:} tensor network có thể mô phỏng QCD ở vùng tương tác mạnh?
+  \item Kết nối TN $\leftrightarrow$ AdS/CFT: từ MERA đến lý thuyết hấp dẫn lượng tử
+\end{itemize}}
+
 \end{column}
 \end{columns}
 
@@ -837,7 +2681,7 @@ $f(\mathbf{x}) = \bra{\psi_W}\bigotimes_i\ket{\Phi(x_i)}$, với $\ket{\Phi(x)}=
 % ══════════════════════════════════════
 % REFERENCES
 % ══════════════════════════════════════
-\begin{frame}{Tài liệu tham khảo chính}
+\begin{frame}{Tài liệu tham khảo}
 \begin{itemize}
   \item Schollwöck, \textit{Ann. Phys.} 326, 96 (2011) — DMRG \& MPS review
   \item Vidal, \textit{PRL} 91, 147902 (2003) — TEBD; \textit{PRL} 99, 220405 (2007) — MERA

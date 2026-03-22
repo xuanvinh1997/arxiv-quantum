@@ -1,25 +1,4 @@
 """
-Shadow Enhanced Greedy Quantum Eigensolver (SEGQE) — PennyLane Implementation
-
-Reference: arXiv:2602.17615
-"A Shadow Enhanced Greedy Quantum Eigensolver"
-
-Algorithm overview:
-  1. Start with C_0 = I, initial state |ψ_0⟩
-  2. At each iteration k:
-     a. Prepare |ψ_k⟩ = C_k|ψ_0⟩
-     b. Collect N classical shadows via random Pauli measurements
-     c. For each candidate gate U_j(θ) in gate set G:
-        - Use shadows to estimate Pauli expectation values p_{j,α}
-        - Classically compute ΔE_j(θ) and find optimal θ*_j
-     d. Append the gate with largest energy decrease
-  3. Terminate when ΔE_max ≤ Δ or circuit depth reaches D
-
-For Pauli rotation gates e^{-iθX/2} with X²=I:
-  ΔE(θ) = ½(A - A cos θ - B sin θ)
-  θ* = atan2(B, A)
-  ΔE_max = ½(A + √(A² + B²))
-where A = ⟨ψ|H|ψ⟩ - ⟨ψ|XHX|ψ⟩, B = ⟨ψ|i[X,H]|ψ⟩
 """
 
 import numpy as np
