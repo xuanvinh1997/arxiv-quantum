@@ -1,0 +1,76 @@
+topics:
+  - name: "variational quantum eigensolver"
+    synonyms:
+      - "VQE"
+      - "UCCSD"
+      - "variational quantum circuits"
+      - "VQC"
+      - "parameterized quantum circuits"
+      - "PQC"
+    arxiv_categories: ["quant-ph", "cs.LG"]
+
+  - name: "quantum error correction ML"
+    synonyms:
+      - "QEC"
+      - "fault-tolerant QML"
+      - "error mitigation"
+      - "[[4,2,2]] code"
+      - "stabilizer codes"
+      - "quantum error detection"
+      - "syndrome extraction"
+    arxiv_categories: ["quant-ph"]
+
+  - name: "quantum kernel methods"
+    synonyms:
+      - "quantum SVM"
+      - "QSVM"
+      - "quantum feature map"
+      - "quantum kernel"
+      - "fidelity kernel"
+      - "projected quantum kernel"
+    arxiv_categories: ["quant-ph", "cs.LG"]
+
+  - name: "barren plateaus"
+    synonyms:
+      - "vanishing gradients quantum"
+      - "trainability VQC"
+      - "cost concentration"
+      - "gradient vanishing quantum"
+      - "expressibility barren plateau"
+    arxiv_categories: ["quant-ph", "cs.LG"]
+
+  - name: "tensor network QML"
+    synonyms:
+      - "MPS quantum machine learning"
+      - "DMRG machine learning"
+      - "tensor network classifier"
+      - "matrix product state QML"
+      - "MERA ansatz"
+      - "tree tensor network"
+    arxiv_categories: ["quant-ph", "cond-mat.str-el"]
+
+  - name: "quantum advantage"
+    synonyms:
+      - "quantum supremacy"
+      - "quantum speedup ML"
+      - "dequantization"
+      - "quantum computational advantage"
+      - "classical simulation quantum"
+    arxiv_categories: ["quant-ph", "cs.CC"]
+
+  - name: "quantum generative models"
+    synonyms:
+      - "QGAN"
+      - "quantum GAN"
+      - "quantum Boltzmann machine"
+      - "quantum circuit Born machine"
+      - "quantum generative adversarial"
+    arxiv_categories: ["quant-ph", "cs.LG"]
+
+  - name: "shadow tomography"
+    synonyms:
+      - "classical shadows"
+      - "randomized measurement"
+      - "shadow estimation"
+      - "Pauli shadow"
+    arxiv_categories: ["quant-ph"]

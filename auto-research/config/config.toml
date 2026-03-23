@@ -1,0 +1,28 @@
+[neo4j]
+uri = "bolt://localhost:7687"
+user = "neo4j"
+password = "researchpw"
+max_connection_pool_size = 10
+
+[semantic_scholar]
+api_key = ""  # Optional: add key for 1 req/s (vs 100/5min without)
+base_url = "https://api.semanticscholar.org/graph/v1"
+
+[arxiv]
+base_url = "http://export.arxiv.org/api/query"
+rate_limit_rps = 3
+
+[cache]
+ttl_paper_seconds = 86400    # 24h
+ttl_search_seconds = 3600    # 1h
+
+[embeddings]
+model = "sentence-transformers/all-MiniLM-L6-v2"
+dimensions = 384
+
+[extract]
+# Local LLM via Ollama (OpenAI-compatible API)
+# Run: ollama pull nemotron-cascade-2
+model    = "nemotron-cascade-2"
+base_url = "http://localhost:11434/v1"
+api_key  = "ollama"
