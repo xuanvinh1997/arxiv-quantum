@@ -1,0 +1,73 @@
+name: ChatGPT temporary fetch arXiv 2005.12667
+
+on:
+  push:
+    branches:
+      - chatgpt-fetch-2005-12667
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  fetch-paper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download and validate the original PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib
+          import time
+          import urllib.request
+
+          output = pathlib.Path("cqed_arxiv_2005.12667.pdf")
+          urls = [
+              "https://arxiv.org/pdf/2005.12667",
+              "https://arxiv.org/pdf/2005.12667.pdf",
+              "https://export.arxiv.org/pdf/2005.12667",
+              "https://circuitqedsherbrooke.ca/wp-content/uploads/2024/07/119_CQED_RMP.pdf?x25036=",
+          ]
+          last_error = None
+          for url in urls:
+              for attempt in range(1, 4):
+                  try:
+                      req = urllib.request.Request(
+                          url,
+                          headers={
+                              "User-Agent": "Mozilla/5.0 (compatible; academic-paper-fetch/1.0)",
+                              "Accept": "application/pdf,*/*;q=0.8",
+                          },
+                      )
+                      with urllib.request.urlopen(req, timeout=90) as response:
+                          data = response.read()
+                      if not data.startswith(b"%PDF-"):
+                          raise RuntimeError(f"response from {url} is not a PDF")
+                      if len(data) < 500_000:
+                          raise RuntimeError(f"PDF from {url} is unexpectedly small: {len(data)} bytes")
+                      output.write_bytes(data)
+                      print(f"Downloaded {len(data)} bytes from {url}")
+                      raise SystemExit(0)
+                  except SystemExit:
+                      raise
+                  except Exception as exc:
+                      last_error = exc
+                      print(f"Attempt {attempt} failed for {url}: {exc}")
+                      time.sleep(5 * attempt)
+          raise SystemExit(f"All downloads failed: {last_error}")
+          PY
+          file cqed_arxiv_2005.12667.pdf
+          ls -lh cqed_arxiv_2005.12667.pdf
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cqed-arxiv-2005-12667
+          path: cqed_arxiv_2005.12667.pdf
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
